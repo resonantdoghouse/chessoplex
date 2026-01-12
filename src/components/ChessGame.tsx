@@ -364,6 +364,15 @@ export default function ChessGame() {
     <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 items-start justify-center w-full max-w-7xl mx-auto pt-4 lg:pt-0 px-4">
       {/* DEBUG OVERLAY */}
 
+      {/* Dynamic Background Gradient */}
+      <div
+        className="fixed inset-0 z-[-1] transition-all duration-1000 ease-in-out"
+        style={{
+          background: BOARD_THEMES[boardTheme].backgroundGradient,
+          // Removed blur/brightness as gradients are designed to be backgrounds
+        }}
+      />
+
       {/* Desktop Theme Toggle (Hidden on Mobile) */}
       <div className="hidden lg:block absolute top-4 right-4 z-50">
         <ThemeToggle />
@@ -410,9 +419,9 @@ export default function ChessGame() {
 
       {/* Mobile Info Section - Below Board (Order 2 on Mobile) */}
       <div className="w-full lg:hidden flex flex-col gap-4 mt-2 order-2">
-        <div className="flex items-center justify-between p-2 bg-white/50 dark:bg-zinc-900/50 rounded-xl border border-black/5 dark:border-white/5 backdrop-blur-sm">
+        <div className="flex items-center justify-between p-3 bg-white/80 dark:bg-zinc-900/80 rounded-xl border border-white/20 dark:border-white/10 backdrop-blur-xl shadow-lg">
           <div>
-            <h1 className="text-2xl font-black uppercase text-transparent bg-clip-text bg-gradient-to-br from-zinc-950 to-zinc-700 dark:from-white dark:to-zinc-400 leading-none">
+            <h1 className="text-2xl font-black uppercase tracking-wider leading-none text-zinc-900 dark:text-white drop-shadow-sm">
               Chessoplex
             </h1>
             <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 tracking-wider">
@@ -445,11 +454,11 @@ export default function ChessGame() {
       {/* Sidebar (Desktop) / Drawer (Mobile) - Stats & History */}
       <div
         className={`
-            fixed inset-x-0 bottom-0 z-50 p-6 rounded-t-3xl border-t border-black/5 dark:border-white/10
-            bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.3)]
+            fixed inset-x-0 bottom-0 z-50 p-4 lg:p-0 rounded-t-3xl lg:rounded-none border-t border-white/20 dark:border-white/10 lg:border-none
+            bg-white/80 dark:bg-zinc-900/80 lg:bg-transparent lg:dark:bg-transparent backdrop-blur-xl lg:backdrop-blur-none shadow-[0_-10px_40px_rgba(0,0,0,0.3)] lg:shadow-none
             transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1)
-            flex flex-col gap-6 shrink-0 h-[85vh] lg:h-auto lg:max-h-[85vh] overflow-y-auto
-            lg:static lg:w-96 lg:bg-transparent lg:dark:bg-transparent lg:border-none lg:shadow-none lg:p-0 lg:rounded-none lg:translate-y-0 lg:order-2
+            flex flex-col gap-4 shrink-0 h-[85vh] lg:h-[calc(100vh-2rem)] lg:sticky lg:top-4 overflow-hidden
+            lg:w-96 lg:translate-y-0 lg:order-2
             ${
               showMobileControls
                 ? "translate-y-0"
@@ -458,7 +467,7 @@ export default function ChessGame() {
         `}
       >
         {/* Mobile Drawer Header */}
-        <div className="lg:hidden w-full flex flex-col items-center gap-2 mb-2 sticky top-0 z-50 -mt-2 pt-2">
+        <div className="lg:hidden w-full flex flex-col items-center gap-2 mb-2 sticky top-0 z-50 -mt-2 pt-2 shrink-0">
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
           <div className="w-full flex justify-between items-center mt-2">
             <h3 className="font-bold text-lg dark:text-white">Game Controls</h3>
@@ -471,76 +480,91 @@ export default function ChessGame() {
           </div>
         </div>
 
-        {/* Desktop Only: Game Info */}
-        <div className="hidden lg:block">
-          <GameInfo
-            key={`desktop-${gameId}`}
-            turn={game.turn()}
-            startTime={startTime}
-            gameStatus={gameResult ? gameResult.reason : null}
-            isPaused={isPaused}
-            totalPausedTime={totalPausedTime}
-            opponentName={opponentName}
-          />
-        </div>
-
-        <div className="flex bg-white/50 dark:bg-black/30 p-1 rounded-xl border border-black/5 dark:border-white/5 shrink-0">
-          {(["Easy", "Medium", "Hard"] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => setDifficulty(level)}
-              aria-label={`Select ${level} Difficulty`}
-              className={`flex-1 py-3 lg:py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
-                difficulty === level
-                  ? "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900"
-                  : "text-zinc-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
-              }`}
-            >
-              {level}
-            </button>
-          ))}
-        </div>
-
-        {/* Board Theme Selector */}
-        <div className="grid grid-cols-4 gap-2 p-3 bg-white/50 dark:bg-black/30 rounded-xl border border-black/5 dark:border-white/5">
-          {Object.entries(BOARD_THEMES).map(([key, theme]) => (
-            <button
-              key={key}
-              onClick={() => setBoardTheme(key as BoardTheme)}
-              title={theme.name}
-              className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${
-                boardTheme === key
-                  ? "border-zinc-900 dark:border-white scale-110 shadow-md ring-2 ring-zinc-500/30"
-                  : "border-transparent hover:border-black/20 dark:hover:border-white/20"
-              }`}
-              style={{
-                background: `linear-gradient(135deg, ${theme.light} 50%, ${theme.dark} 50%)`,
-              }}
-              aria-label={`Select ${theme.name} Theme`}
+        {/* Scrollable Content Container */}
+        <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-4 pr-1 lg:pr-0">
+          {/* Desktop Only: Game Info */}
+          <div className="hidden lg:block shrink-0">
+            <GameInfo
+              key={`desktop-${gameId}`}
+              turn={game.turn()}
+              startTime={startTime}
+              gameStatus={gameResult ? gameResult.reason : null}
+              isPaused={isPaused}
+              totalPausedTime={totalPausedTime}
+              opponentName={opponentName}
             />
-          ))}
+          </div>
+
+          <div className="flex bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md p-1 rounded-xl border border-white/20 dark:border-white/10 shrink-0 shadow-lg">
+            {(["Easy", "Medium", "Hard"] as const).map((level) => (
+              <button
+                key={level}
+                onClick={() => setDifficulty(level)}
+                aria-label={`Select ${level} Difficulty`}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
+                  difficulty === level
+                    ? "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900"
+                    : "text-zinc-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
+                }`}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+
+          {/* Board Theme Selector */}
+          <div className="shrink-0">
+            <div className="flex justify-between items-end px-1 pb-1">
+              <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                Theme
+              </span>
+              <span className="text-xs font-black text-zinc-800 dark:text-zinc-200 uppercase tracking-widest">
+                {BOARD_THEMES[boardTheme].name}
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 p-3 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md rounded-xl border border-white/20 dark:border-white/10 shadow-lg">
+              {Object.entries(BOARD_THEMES).map(([key, theme]) => (
+                <button
+                  key={key}
+                  onClick={() => setBoardTheme(key as BoardTheme)}
+                  title={theme.name}
+                  className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${
+                    boardTheme === key
+                      ? "border-zinc-900 dark:border-white scale-110 shadow-md ring-2 ring-zinc-500/30"
+                      : "border-transparent hover:border-black/20 dark:hover:border-white/20"
+                  }`}
+                  style={{
+                    background: `linear-gradient(135deg, ${theme.light} 50%, ${theme.dark} 50%)`,
+                  }}
+                  aria-label={`Select ${theme.name} Theme`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowThreats(!showThreats)}
+            className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${
+              showThreats
+                ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20"
+                : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"
+            }`}
+          >
+            {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
+          </button>
+
+          {/* Flexible History Container */}
+          <div className="flex-grow flex flex-col min-h-[150px] bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-white/10 shadow-2xl ring-1 ring-black/5 overflow-hidden">
+            <MoveHistory history={game.history()} />
+          </div>
         </div>
 
-        <button
-          onClick={() => setShowThreats(!showThreats)}
-          className={`w-full py-4 lg:py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${
-            showThreats
-              ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20"
-              : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"
-          }`}
-        >
-          {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
-        </button>
-
-        <div className="flex-grow overflow-hidden flex flex-col min-h-[250px] bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-black/10 dark:border-white/10 shadow-xl">
-          <MoveHistory history={game.history()} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 shrink-0 pb-6 lg:pb-0">
+        {/* Action Buttons - Always visible at bottom */}
+        <div className="grid grid-cols-2 gap-3 shrink-0 pt-2 lg:pt-0">
           <button
             onClick={togglePause}
             aria-label={isPaused ? "Resume Game" : "Pause Game"}
-            className={`py-4 px-6 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${
+            className={`py-3 px-6 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${
               isPaused
                 ? "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white border-yellow-400/50 shadow-yellow-900/40"
                 : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"
@@ -551,7 +575,7 @@ export default function ChessGame() {
           <button
             onClick={resetGame}
             aria-label="Start New Game"
-            className="w-full py-4 px-6 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border border-white/10"
+            className="w-full py-3 px-6 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border border-white/10"
           >
             NEW GAME
           </button>
