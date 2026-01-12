@@ -1,4 +1,10 @@
-import ChessGame from "../components/ChessGame";
+"use client";
+
+import dynamic from "next/dynamic";
+
+const ChessGame = dynamic(() => import("../components/ChessGame"), {
+  ssr: false,
+});
 
 export default function Home() {
   return (

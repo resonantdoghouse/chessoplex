@@ -1,3 +1,16 @@
+export const BOARD_THEMES = {
+  default: { name: "Classic", light: "#f0d9b5", dark: "#b58863" },
+  emerald: { name: "Emerald", light: "#E8F5E9", dark: "#2E7D32" },
+  royal: { name: "Royal", light: "#E3F2FD", dark: "#1565C0" },
+  stone: { name: "Stone", light: "#E0E0E0", dark: "#616161" },
+  obsidian: { name: "Obsidian", light: "#BDBDBD", dark: "#212121" },
+  slate: { name: "Slate", light: "#ECEFF1", dark: "#455A64" },
+  marble: { name: "Marble", light: "#F5F5F5", dark: "#9E9E9E" },
+  amethyst: { name: "Amethyst", light: "#F3E5F5", dark: "#7B1FA2" },
+} as const;
+
+export type BoardTheme = keyof typeof BOARD_THEMES;
+
 export const OPPONENT_NAMES = [
   // Classic/Russian
   "Grandmaster Vladimir",

@@ -8,10 +8,10 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className={`p-2 rounded-full transition-all duration-300 ${
+      className={`p-2.5 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 ${
         theme === "dark"
-          ? "bg-zinc-800 text-yellow-400 hover:bg-zinc-700 shadow-md border border-white/10"
-          : "bg-white text-orange-500 hover:bg-gray-100 shadow-md border border-gray-200"
+          ? "bg-zinc-800 text-yellow-400 hover:bg-zinc-700 shadow-lg border-2 border-yellow-500/20 ring-1 ring-black/20"
+          : "bg-white text-orange-500 hover:bg-orange-50 shadow-lg border-2 border-orange-200 ring-1 ring-black/5"
       }`}
       aria-label="Toggle Theme"
     >

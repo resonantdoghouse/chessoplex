@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Chess, Square } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import { Chessboard as ChessboardBase } from "react-chessboard";
+const Chessboard = ChessboardBase as any;
 import GameResultModal from "./GameResultModal";
 import GameInfo from "./GameInfo";
 import MoveHistory from "./MoveHistory";
-import { OPPONENT_NAMES } from "@/lib/constants";
+import { OPPONENT_NAMES, BOARD_THEMES, BoardTheme } from "@/lib/constants";
 import ThemeToggle from "./ThemeToggle";
 
 export default function ChessGame() {
@@ -27,7 +28,9 @@ export default function ChessGame() {
     moves: number;
     duration: string;
   } | null>(null);
-  const [startTime, setStartTime] = useState<number>(Date.now());
+  /* eslint-disable react-hooks/exhaustive-deps */
+  const [startTime, setStartTime] = useState<number>(0);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [totalPausedTime, setTotalPausedTime] = useState(0);
@@ -36,6 +39,7 @@ export default function ChessGame() {
   const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Hard">(
     "Medium"
   );
+  const [boardTheme, setBoardTheme] = useState<BoardTheme>("default");
   const [showThreats, setShowThreats] = useState(false);
   const [threatenedSquares, setThreatenedSquares] = useState<
     Record<string, React.CSSProperties>
@@ -80,16 +84,20 @@ export default function ChessGame() {
 
   // Mount & Load Effect
   useEffect(() => {
-    setMounted(true);
     setStartTime(Date.now());
 
     // Auto-Load
     const savedPgn = localStorage.getItem("chess_saved_pgn");
     const savedOpponent = localStorage.getItem("chess_saved_opponent");
     const savedDifficulty = localStorage.getItem("chess_saved_difficulty");
+    const savedTheme = localStorage.getItem("chess_saved_theme") as BoardTheme;
 
     if (savedDifficulty) {
       setDifficulty(savedDifficulty as "Easy" | "Medium" | "Hard");
+    }
+
+    if (savedTheme && BOARD_THEMES[savedTheme]) {
+      setBoardTheme(savedTheme);
     }
 
     if (savedPgn && savedOpponent) {
@@ -98,6 +106,17 @@ export default function ChessGame() {
         loadedGame.loadPgn(savedPgn);
         setGame(loadedGame);
         setOpponentName(savedOpponent);
+
+        // Check if the loaded game is already over
+        checkGameEnd(loadedGame);
+
+        // FIX: If we loaded a game and it's Black's turn (AI), trigger the move
+        // But only if game is NOT over
+        if (!loadedGame.isGameOver() && loadedGame.turn() === "b") {
+          setTimeout(() => {
+            makeRandomMove(loadedGame);
+          }, 800);
+        }
       } catch (e) {
         console.error("Failed to load saved game:", e);
         // Fallback to new game
@@ -110,6 +129,8 @@ export default function ChessGame() {
         OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)]
       );
     }
+
+    setMounted(true);
   }, []);
 
   // Auto-Save Game Effect
@@ -126,6 +147,12 @@ export default function ChessGame() {
     if (!mounted) return;
     localStorage.setItem("chess_saved_difficulty", difficulty);
   }, [difficulty, mounted]);
+
+  // Auto-Save Theme Effect
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("chess_saved_theme", boardTheme);
+  }, [boardTheme, mounted]);
 
   function checkGameEnd(currentGame: Chess) {
     if (currentGame.isGameOver()) {
@@ -178,20 +205,23 @@ export default function ChessGame() {
       newSquares[targetSquare] = {
         background:
           piece && piece.color !== game.turn()
-            ? "radial-gradient(circle, rgba(0,0,0,.5) 85%, transparent 85%)"
-            : "radial-gradient(circle, rgba(0,0,0,.5) 25%, transparent 25%)",
+            ? "radial-gradient(circle, rgba(255, 0, 0, 0.5) 85%, transparent 85%)"
+            : "radial-gradient(circle, rgba(0, 0, 0, 0.3) 25%, transparent 25%)", // Increased visibility
         borderRadius: "50%",
+        boxShadow: "inset 0 0 10px rgba(0,0,0,0.2)", // Add some shadow for visibility
       };
       return move;
     });
     newSquares[square] = {
-      background: "rgba(255, 255, 0, 0.4)",
+      background: "rgba(255, 255, 0, 0.6)", // More visible yellow
     };
     setOptionSquares(newSquares);
     return true;
   }
 
-  function onSquareClick({ square }: { square: string }) {
+  function onSquareClick(square: string) {
+    console.log("onSquareClick:", square);
+
     if (isPaused) return;
 
     if (moveFrom === square) {
@@ -222,7 +252,10 @@ export default function ChessGame() {
 
   function handleMove(source: string, target: string) {
     try {
-      const move = game.move({
+      const gameCopy = new Chess();
+      gameCopy.loadPgn(game.pgn());
+
+      const move = gameCopy.move({
         from: source,
         to: target,
         promotion: "q",
@@ -230,20 +263,18 @@ export default function ChessGame() {
 
       if (move === null) return false;
 
-      const newGame = new Chess();
-      newGame.loadPgn(game.pgn());
-      setGame(newGame);
-
-      checkGameEnd(newGame);
+      setGame(gameCopy);
+      checkGameEnd(gameCopy);
 
       const delay = getMoveDelay(difficulty);
       setTimeout(() => {
-        makeRandomMove(newGame);
+        makeRandomMove(gameCopy);
       }, delay);
 
       return true;
     } catch (error) {
-      console.error("Move error:", error);
+      // Invalid moves are common (clicking wrong square), so we silence them
+      // console.error("Move error:", error);
       return false;
     }
   }
@@ -261,37 +292,33 @@ export default function ChessGame() {
     }
   }
 
-  function onDrop({
-    sourceSquare,
-    targetSquare,
-  }: {
-    sourceSquare: string;
-    targetSquare: string | null;
-  }) {
+  function onDrop(sourceSquare: string, targetSquare: string) {
+    console.log("onDrop:", sourceSquare, targetSquare);
     if (isPaused) return false;
     if (!targetSquare) return false;
     return handleMove(sourceSquare, targetSquare);
   }
 
-  function makeRandomMove(currentGameState: Chess) {
+  function makeRandomMove(startingGame: Chess) {
     if (isPaused) return;
 
-    const possibleMoves = currentGameState.moves();
+    // Use a clone to ensure we have the latest state and don't mutate props
+    const tempGame = new Chess();
+    tempGame.loadPgn(startingGame.pgn());
+
+    const possibleMoves = tempGame.moves();
     if (
-      currentGameState.isGameOver() ||
-      currentGameState.isDraw() ||
+      tempGame.isGameOver() ||
+      tempGame.isDraw() ||
       possibleMoves.length === 0
     )
       return;
 
     const randomIndex = Math.floor(Math.random() * possibleMoves.length);
-    currentGameState.move(possibleMoves[randomIndex]);
+    tempGame.move(possibleMoves[randomIndex]);
 
-    const nextGame = new Chess();
-    nextGame.loadPgn(currentGameState.pgn());
-
-    setGame(nextGame);
-    checkGameEnd(nextGame);
+    setGame(tempGame);
+    checkGameEnd(tempGame);
   }
 
   function togglePause() {
@@ -335,6 +362,8 @@ export default function ChessGame() {
 
   return (
     <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 items-start justify-center w-full max-w-7xl mx-auto pt-4 lg:pt-0 px-4">
+      {/* DEBUG OVERLAY */}
+
       {/* Desktop Theme Toggle (Hidden on Mobile) */}
       <div className="hidden lg:block absolute top-4 right-4 z-50">
         <ThemeToggle />
@@ -342,15 +371,29 @@ export default function ChessGame() {
 
       {/* Chessboard Area - First on Mobile (Order 1) */}
       <div className="w-full lg:flex-1 aspect-square shadow-2xl rounded-xl overflow-hidden border-4 lg:border-8 border-zinc-800/50 dark:border-zinc-800/50 border-zinc-200/50 relative z-0 order-1 lg:order-1">
-        <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900 -z-10"></div>
-        <Chessboard
-          options={{
-            position: game.fen(),
-            onPieceDrop: onDrop,
-            onSquareClick: onSquareClick,
-            squareStyles: { ...optionSquares, ...threatenedSquares },
-          }}
-        />
+        <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900 -z-10 pointer-events-none"></div>
+        {mounted ? (
+          <Chessboard
+            key={boardTheme}
+            id="BasicBoard"
+            position={game.fen()}
+            onPieceDrop={onDrop}
+            onSquareClick={onSquareClick}
+            onPieceClick={(_: string, square: string) => onSquareClick(square)} // Use onSquareClick for consistency
+            arePiecesDraggable={!isPaused}
+            customSquareStyles={{ ...optionSquares, ...threatenedSquares }}
+            customDarkSquareStyle={{
+              backgroundColor: BOARD_THEMES[boardTheme].dark,
+            }}
+            customLightSquareStyle={{
+              backgroundColor: BOARD_THEMES[boardTheme].light,
+            }}
+          />
+        ) : (
+          <div className="w-full h-full bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded-lg flex items-center justify-center">
+            <span className="text-zinc-400 font-bold">Loading Board...</span>
+          </div>
+        )}
         {isPaused && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-10 transition-all duration-500">
             <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
@@ -388,6 +431,8 @@ export default function ChessGame() {
           totalPausedTime={totalPausedTime}
           opponentName={opponentName}
         />
+
+        {/* DEBUG OVERLAY */}
 
         <button
           onClick={() => setShowMobileControls(true)}
@@ -456,6 +501,26 @@ export default function ChessGame() {
           ))}
         </div>
 
+        {/* Board Theme Selector */}
+        <div className="grid grid-cols-4 gap-2 p-3 bg-white/50 dark:bg-black/30 rounded-xl border border-black/5 dark:border-white/5">
+          {Object.entries(BOARD_THEMES).map(([key, theme]) => (
+            <button
+              key={key}
+              onClick={() => setBoardTheme(key as BoardTheme)}
+              title={theme.name}
+              className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${
+                boardTheme === key
+                  ? "border-zinc-900 dark:border-white scale-110 shadow-md ring-2 ring-zinc-500/30"
+                  : "border-transparent hover:border-black/20 dark:hover:border-white/20"
+              }`}
+              style={{
+                background: `linear-gradient(135deg, ${theme.light} 50%, ${theme.dark} 50%)`,
+              }}
+              aria-label={`Select ${theme.name} Theme`}
+            />
+          ))}
+        </div>
+
         <button
           onClick={() => setShowThreats(!showThreats)}
           className={`w-full py-4 lg:py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${
@@ -467,7 +532,7 @@ export default function ChessGame() {
           {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
         </button>
 
-        <div className="flex-grow overflow-hidden flex flex-col min-h-[250px] lg:min-h-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-black/10 dark:border-white/10 shadow-xl">
+        <div className="flex-grow overflow-hidden flex flex-col min-h-[250px] bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-black/10 dark:border-white/10 shadow-xl">
           <MoveHistory history={game.history()} />
         </div>
 
