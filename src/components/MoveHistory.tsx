@@ -1,20 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 type MoveHistoryProps = {
   history: string[];
 };
 
 export default function MoveHistory({ history }: MoveHistoryProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [history]);
-
   // Group moves into pairs (White, Black)
   const movePairs = [];
   for (let i = 0; i < history.length; i += 2) {
@@ -25,6 +17,9 @@ export default function MoveHistory({ history }: MoveHistoryProps) {
     });
   }
 
+  // Reverse to show latest move at the top
+  movePairs.reverse();
+
   if (history.length === 0) {
     return (
       <div className="w-full flex-grow flex items-center justify-center min-h-[100px] text-zinc-500 italic text-sm font-mono opacity-50">
@@ -34,30 +29,33 @@ export default function MoveHistory({ history }: MoveHistoryProps) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="px-4 py-3 border-b border-white/5 bg-white/5">
-        <h3 className="text-[10px] uppercase font-bold text-zinc-400 tracking-[0.2em]">
+    <div className="w-full h-full flex flex-col bg-transparent">
+      <div className="px-4 py-3 border-b border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5">
+        <h3 className="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 tracking-[0.2em]">
           Move History
         </h3>
       </div>
-      <div
-        ref={scrollRef}
-        className="flex-grow overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent h-full max-h-[300px]"
-      >
-        <div className="sticky top-0 z-10 grid grid-cols-[3rem_1fr_1fr] gap-2 text-xs font-mono px-4 py-2 text-zinc-500 font-bold bg-zinc-900/90 backdrop-blur-sm border-b border-white/5">
+      <div className="flex-grow overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-zinc-400 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent h-full max-h-[300px]">
+        <div className="sticky top-0 z-10 grid grid-cols-[3rem_1fr_1fr] gap-2 text-xs font-mono px-4 py-2 text-zinc-600 dark:text-zinc-500 font-bold bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-b border-black/5 dark:border-white/5">
           <span>#</span>
           <span>White</span>
           <span>Black</span>
         </div>
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-black/5 dark:divide-white/5">
           {movePairs.map((pair) => (
             <div
               key={pair.number}
-              className="grid grid-cols-[3rem_1fr_1fr] gap-2 text-sm font-mono px-4 py-2 hover:bg-white/5 transition-colors duration-150"
+              className="grid grid-cols-[3rem_1fr_1fr] gap-2 text-sm font-mono px-4 py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             >
-              <span className="text-zinc-600">{pair.number}.</span>
-              <span className="text-zinc-200 font-medium">{pair.white}</span>
-              <span className="text-zinc-400 font-medium">{pair.black}</span>
+              <span className="text-zinc-500 dark:text-zinc-600">
+                {pair.number}.
+              </span>
+              <span className="text-zinc-800 dark:text-zinc-200 font-medium">
+                {pair.white}
+              </span>
+              <span className="text-zinc-600 dark:text-zinc-400 font-medium">
+                {pair.black}
+              </span>
             </div>
           ))}
         </div>

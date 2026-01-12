@@ -2,34 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-const RUSSIAN_NAMES = [
-  "Grandmaster Vladimir",
-  "Igor the Terrible",
-  "Boris the Blade",
-  "Sergei of Siberia",
-  "Dimitri the Destroyer",
-  "Ivan standard",
-  "Alexei Alekhine",
-  "Mikhail the Master",
-  "Anatoly Analysis",
-  "Garry Gambit",
-  "Sir Reginald Rook",
-  "Lord Pawnsworth",
-  "Arthur Kingslayer",
-  "Bjorn the Berserker",
-  "Magnus Mitgaard",
-  "Thor Thunder-Board",
-  "Don Carlos Checkmate",
-  "El Matador de Ajedrez",
-  "Javier Knight",
-];
-
 type GameInfoProps = {
   turn: "w" | "b";
   startTime: number;
   gameStatus: string | null;
   isPaused: boolean;
   totalPausedTime: number;
+  opponentName: string;
 };
 
 export default function GameInfo({
@@ -38,16 +17,9 @@ export default function GameInfo({
   gameStatus,
   isPaused,
   totalPausedTime,
+  opponentName,
 }: GameInfoProps) {
-  const [opponentName, setOpponentName] = useState("");
   const [elapsed, setElapsed] = useState("0:00");
-
-  useEffect(() => {
-    // Randomize name on mount
-    const randomName =
-      RUSSIAN_NAMES[Math.floor(Math.random() * RUSSIAN_NAMES.length)];
-    setOpponentName(randomName);
-  }, []);
 
   useEffect(() => {
     if (gameStatus) return;
@@ -89,8 +61,14 @@ export default function GameInfo({
         }`}
       >
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-950 to-black flex items-center justify-center border border-red-800/30 shadow-inner">
-            <span className="text-red-200/50 font-black text-lg">AI</span>
+          <div className="w-12 h-12 rounded-full bg-black/50 overflow-hidden border border-red-800/30 shadow-inner p-1">
+            <img
+              src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
+                opponentName
+              )}`}
+              alt="Opponent Avatar"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div>
             <p className="font-bold text-zinc-100 text-lg">{opponentName}</p>
