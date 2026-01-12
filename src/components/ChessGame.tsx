@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { Chess, Square } from "chess.js";
 import { Chessboard as ChessboardBase } from "react-chessboard";
 const Chessboard = ChessboardBase as any;
-import GameResultModal from "./GameResultModal";
+import GameOverModal from "./GameOverModal";
 import GameInfo from "./GameInfo";
 import MoveHistory from "./MoveHistory";
 import { OPPONENT_NAMES, BOARD_THEMES, BoardTheme } from "@/lib/constants";
 import ThemeToggle from "./ThemeToggle";
+import { useTheme } from "../hooks/useTheme";
 
 export default function ChessGame() {
   const [game, setGame] = useState(new Chess());
@@ -21,7 +22,7 @@ export default function ChessGame() {
 
   // Game stats state
   const [gameResult, setGameResult] = useState<{
-    winner: "white" | "black" | "draw";
+    winner: "w" | "b" | "draw";
     reason: string;
   } | null>(null);
   const [gameStats, setGameStats] = useState<{
@@ -30,6 +31,8 @@ export default function ChessGame() {
   } | null>(null);
   /* eslint-disable react-hooks/exhaustive-deps */
   const [startTime, setStartTime] = useState<number>(0);
+
+  const { theme } = useTheme(); // Moved hook to top level
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -166,11 +169,11 @@ export default function ChessGame() {
 
       const moves = currentGame.moveNumber() - 1;
 
-      let winner: "white" | "black" | "draw" = "draw";
+      let winner: "w" | "b" | "draw" = "draw";
       let reason = "";
 
       if (currentGame.isCheckmate()) {
-        winner = currentGame.turn() === "w" ? "black" : "white";
+        winner = currentGame.turn() === "w" ? "b" : "w";
         reason = "Checkmate";
       } else if (currentGame.isDraw()) {
         winner = "draw";
@@ -360,6 +363,21 @@ export default function ChessGame() {
 
   if (!mounted) return null;
 
+  // Helper to determine panel styles based on theme UI mode
+  const isLightUi = (BOARD_THEMES[boardTheme] as any).uiMode === "light";
+
+  const panelBaseClass = isLightUi
+    ? "bg-white/90 border-black/10 shadow-xl" // Forced Light Mode
+    : "bg-white/80 dark:bg-zinc-900/80 border-white/20 dark:border-white/10"; // Adaptive
+
+  const textBaseClass = isLightUi
+    ? "text-zinc-950" // Darker black for light mode
+    : "text-zinc-900 dark:text-white";
+
+  const subTextClass = isLightUi
+    ? "text-zinc-600" // Darker grey for light mode
+    : "text-zinc-500 dark:text-zinc-400";
+
   return (
     <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 items-start justify-center w-full max-w-7xl mx-auto pt-4 lg:pt-0 px-4">
       {/* DEBUG OVERLAY */}
@@ -368,15 +386,21 @@ export default function ChessGame() {
       <div
         className="fixed inset-0 z-[-1] transition-all duration-1000 ease-in-out"
         style={{
-          background: BOARD_THEMES[boardTheme].backgroundGradient,
-          // Removed blur/brightness as gradients are designed to be backgrounds
+          background:
+            theme === "dark"
+              ? BOARD_THEMES[boardTheme].gradientDark
+              : (BOARD_THEMES[boardTheme] as any).gradientLight ||
+                BOARD_THEMES[boardTheme].gradientDark, // Fallback if light missing (TS safety)
         }}
       />
 
-      {/* Desktop Theme Toggle (Hidden on Mobile) */}
-      <div className="hidden lg:block absolute top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
+      <GameOverModal
+        isOpen={!!gameResult}
+        gameStatus={gameResult ? gameResult.reason : null}
+        winner={gameResult ? gameResult.winner : null}
+        onRestart={resetGame}
+        isLightUi={isLightUi}
+      />
 
       {/* Chessboard Area - First on Mobile (Order 1) */}
       <div className="w-full lg:flex-1 aspect-square shadow-2xl rounded-xl overflow-hidden border-4 lg:border-8 border-zinc-800/50 dark:border-zinc-800/50 border-zinc-200/50 relative z-0 order-1 lg:order-1">
@@ -419,12 +443,18 @@ export default function ChessGame() {
 
       {/* Mobile Info Section - Below Board (Order 2 on Mobile) */}
       <div className="w-full lg:hidden flex flex-col gap-4 mt-2 order-2">
-        <div className="flex items-center justify-between p-3 bg-white/80 dark:bg-zinc-900/80 rounded-xl border border-white/20 dark:border-white/10 backdrop-blur-xl shadow-lg">
+        <div
+          className={`flex items-center justify-between p-3 rounded-xl border backdrop-blur-xl shadow-lg ${panelBaseClass}`}
+        >
           <div>
-            <h1 className="text-2xl font-black uppercase tracking-wider leading-none text-zinc-900 dark:text-white drop-shadow-sm">
+            <h1
+              className={`text-2xl font-black uppercase tracking-wider leading-none drop-shadow-sm ${textBaseClass}`}
+            >
               Chessoplex
             </h1>
-            <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 tracking-wider">
+            <p
+              className={`text-[10px] font-bold tracking-wider ${subTextClass}`}
+            >
               PREMIUM CHESS
             </p>
           </div>
@@ -439,6 +469,7 @@ export default function ChessGame() {
           isPaused={isPaused}
           totalPausedTime={totalPausedTime}
           opponentName={opponentName}
+          isLightUi={isLightUi}
         />
 
         {/* DEBUG OVERLAY */}
@@ -455,7 +486,12 @@ export default function ChessGame() {
       <div
         className={`
             fixed inset-x-0 bottom-0 z-50 p-4 lg:p-0 rounded-t-3xl lg:rounded-none border-t border-white/20 dark:border-white/10 lg:border-none
-            bg-white/80 dark:bg-zinc-900/80 lg:bg-transparent lg:dark:bg-transparent backdrop-blur-xl lg:backdrop-blur-none shadow-[0_-10px_40px_rgba(0,0,0,0.3)] lg:shadow-none
+            ${
+              isLightUi
+                ? "bg-white/90 lg:bg-transparent"
+                : "bg-white/80 dark:bg-zinc-900/80 lg:bg-transparent lg:dark:bg-transparent"
+            } 
+            backdrop-blur-xl lg:backdrop-blur-none shadow-[0_-10px_40px_rgba(0,0,0,0.3)] lg:shadow-none
             transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1)
             flex flex-col gap-4 shrink-0 h-[85vh] lg:h-[calc(100vh-2rem)] lg:sticky lg:top-4 overflow-hidden
             lg:w-96 lg:translate-y-0 lg:order-2
@@ -470,7 +506,9 @@ export default function ChessGame() {
         <div className="lg:hidden w-full flex flex-col items-center gap-2 mb-2 sticky top-0 z-50 -mt-2 pt-2 shrink-0">
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
           <div className="w-full flex justify-between items-center mt-2">
-            <h3 className="font-bold text-lg dark:text-white">Game Controls</h3>
+            <h3 className={`font-bold text-lg ${textBaseClass}`}>
+              Game Controls
+            </h3>
             <button
               onClick={() => setShowMobileControls(false)}
               className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-full font-bold w-10 h-10 flex items-center justify-center transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
@@ -482,8 +520,20 @@ export default function ChessGame() {
 
         {/* Scrollable Content Container */}
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-4 pr-1 lg:pr-0">
-          {/* Desktop Only: Game Info */}
+          {/* Desktop Only: Game Info & Header */}
           <div className="hidden lg:block shrink-0">
+            <div className="flex items-center justify-between mb-6 px-4">
+              <h1
+                className={`text-3xl font-black uppercase tracking-widest drop-shadow-2xl transition-colors duration-300 ${
+                  isLightUi
+                    ? "text-zinc-900"
+                    : "text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400"
+                }`}
+              >
+                Chessoplex
+              </h1>
+              <ThemeToggle />
+            </div>
             <GameInfo
               key={`desktop-${gameId}`}
               turn={game.turn()}
@@ -492,10 +542,13 @@ export default function ChessGame() {
               isPaused={isPaused}
               totalPausedTime={totalPausedTime}
               opponentName={opponentName}
+              isLightUi={isLightUi}
             />
           </div>
 
-          <div className="flex bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md p-1 rounded-xl border border-white/20 dark:border-white/10 shrink-0 shadow-lg">
+          <div
+            className={`flex p-1 rounded-xl border shrink-0 shadow-lg ${panelBaseClass}`}
+          >
             {(["Easy", "Medium", "Hard"] as const).map((level) => (
               <button
                 key={level}
@@ -503,8 +556,12 @@ export default function ChessGame() {
                 aria-label={`Select ${level} Difficulty`}
                 className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
                   difficulty === level
-                    ? "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900"
-                    : "text-zinc-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
+                    ? isLightUi
+                      ? "bg-zinc-900 text-white shadow-md"
+                      : "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900"
+                    : `hover:bg-black/5 ${subTextClass} ${
+                        !isLightUi ? "dark:hover:bg-white/5" : ""
+                      }`
                 }`}
               >
                 {level}
@@ -515,14 +572,20 @@ export default function ChessGame() {
           {/* Board Theme Selector */}
           <div className="shrink-0">
             <div className="flex justify-between items-end px-1 pb-1">
-              <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              <span
+                className={`text-xs font-bold uppercase tracking-wider ${subTextClass}`}
+              >
                 Theme
               </span>
-              <span className="text-xs font-black text-zinc-800 dark:text-zinc-200 uppercase tracking-widest">
+              <span
+                className={`text-xs font-black uppercase tracking-widest ${textBaseClass}`}
+              >
                 {BOARD_THEMES[boardTheme].name}
               </span>
             </div>
-            <div className="grid grid-cols-4 gap-2 p-3 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md rounded-xl border border-white/20 dark:border-white/10 shadow-lg">
+            <div
+              className={`grid grid-cols-4 gap-2 p-3 rounded-xl border shrink-0 shadow-lg ${panelBaseClass}`}
+            >
               {Object.entries(BOARD_THEMES).map(([key, theme]) => (
                 <button
                   key={key}
@@ -530,8 +593,14 @@ export default function ChessGame() {
                   title={theme.name}
                   className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${
                     boardTheme === key
-                      ? "border-zinc-900 dark:border-white scale-110 shadow-md ring-2 ring-zinc-500/30"
-                      : "border-transparent hover:border-black/20 dark:hover:border-white/20"
+                      ? `scale-110 shadow-md ring-2 ${
+                          isLightUi
+                            ? "border-zinc-900 ring-zinc-500/30"
+                            : "border-zinc-900 dark:border-white ring-zinc-500/30"
+                        }`
+                      : `border-transparent hover:border-black/20 ${
+                          !isLightUi ? "dark:hover:border-white/20" : ""
+                        }`
                   }`}
                   style={{
                     background: `linear-gradient(135deg, ${theme.light} 50%, ${theme.dark} 50%)`,
@@ -547,14 +616,24 @@ export default function ChessGame() {
             className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${
               showThreats
                 ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20"
-                : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"
+                : `${
+                    isLightUi
+                      ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5"
+                      : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"
+                  }`
             }`}
           >
             {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
           </button>
 
           {/* Flexible History Container */}
-          <div className="flex-grow flex flex-col min-h-[150px] bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-white/10 shadow-2xl ring-1 ring-black/5 overflow-hidden">
+          <div
+            className={`flex-grow flex flex-col min-h-[150px] rounded-2xl border shadow-2xl ring-1 ring-black/5 overflow-hidden ${
+              isLightUi
+                ? "bg-white/80 border-black/10"
+                : "bg-white/70 dark:bg-zinc-900/70 border-white/20 dark:border-white/10 backdrop-blur-xl"
+            }`}
+          >
             <MoveHistory history={game.history()} />
           </div>
         </div>
@@ -567,7 +646,11 @@ export default function ChessGame() {
             className={`py-3 px-6 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${
               isPaused
                 ? "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white border-yellow-400/50 shadow-yellow-900/40"
-                : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"
+                : `${
+                    isLightUi
+                      ? "bg-white hover:bg-zinc-50 text-zinc-900 border-black/10"
+                      : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"
+                  }`
             }`}
           >
             {isPaused ? "RESUME" : "PAUSE"}
@@ -581,14 +664,6 @@ export default function ChessGame() {
           </button>
         </div>
       </div>
-
-      <GameResultModal
-        isOpen={isModalOpen}
-        gameResult={gameResult}
-        stats={gameStats}
-        onReset={resetGame}
-        onClose={() => setIsModalOpen(false)}
-      />
     </div>
   );
 }

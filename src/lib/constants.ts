@@ -3,57 +3,64 @@ export const BOARD_THEMES = {
     name: "Classic",
     light: "#f0d9b5",
     dark: "#b58863",
-    backgroundGradient:
-      "radial-gradient(circle at center, #8a6c4b 0%, #2f2015 100%)", // Warm wood tones
+    gradientLight:
+      "radial-gradient(circle at center, #fdfbf7 0%, #e6dace 100%)", // Warm Cream
+    gradientDark:
+      "radial-gradient(circle at center, #8a6c4b 0%, #2f2015 100%)", // Warm Wood
   },
   emerald: {
     name: "Emerald",
     light: "#E8F5E9",
     dark: "#2E7D32",
-    backgroundGradient:
-      "linear-gradient(135deg, #134E5E 0%, #71B280 100%)", // Deep forest green
+    gradientLight: "linear-gradient(135deg, #e0f2f1 0%, #a5d6a7 100%)", // Mint
+    gradientDark: "linear-gradient(135deg, #134E5E 0%, #71B280 100%)", // Forest
   },
   royal: {
     name: "Royal",
     light: "#E3F2FD",
     dark: "#1565C0",
-    backgroundGradient:
-      "linear-gradient(to right, #243B55, #141E30)", // Deep ocean blue
+    gradientLight: "linear-gradient(to right, #eff6ff, #dbeafe)", // Soft Blue
+    gradientDark: "linear-gradient(to right, #243B55, #141E30)", // Deep Ocean
   },
   stone: {
     name: "Stone",
     light: "#E0E0E0",
     dark: "#616161",
-    backgroundGradient:
-      "radial-gradient(circle at top right, #606c88 0%, #3f4c6b 100%)", // Cool slate grey
+    gradientLight:
+      "radial-gradient(circle at top right, #f8f9fa 0%, #dee2e6 100%)", // Light Slate
+    gradientDark:
+      "radial-gradient(circle at top right, #606c88 0%, #3f4c6b 100%)", // Cool Slate
   },
   obsidian: {
     name: "Obsidian",
     light: "#BDBDBD",
     dark: "#212121",
-    backgroundGradient:
-      "linear-gradient(to bottom, #000000, #434343)", // Pure black to charcoal
+    gradientLight: "linear-gradient(to bottom, #f5f7fa, #c3cfe2)", // Metallic White
+    gradientDark: "linear-gradient(to bottom, #000000, #434343)", // Pure Black
   },
   slate: {
     name: "Slate",
     light: "#ECEFF1",
     dark: "#455A64",
-    backgroundGradient:
-      "linear-gradient(315deg, #2b4162 0%, #12100e 74%)", // Dark blue-grey
+    gradientLight: "linear-gradient(315deg, #eef2f3 0%, #8e9eab 74%)", // Light Steel
+    gradientDark: "linear-gradient(315deg, #2b4162 0%, #12100e 74%)", // Dark Steel
   },
   marble: {
     name: "Marble",
     light: "#F5F5F5",
     dark: "#9E9E9E",
-    backgroundGradient:
-      "linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%)", // Soft white/grey
+    gradientLight: "linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%)", // White Marble
+    gradientDark: "linear-gradient(to top, #2c3e50 0%, #3498db 100%)", // Blue Marble (Dark)
+    uiMode: "light",
   },
   amethyst: {
     name: "Amethyst",
     light: "#F3E5F5",
     dark: "#7B1FA2",
-    backgroundGradient:
-      "radial-gradient(circle at bottom left, #4A00E0 0%, #8E2DE2 100%)", // Deep purple
+    gradientLight:
+      "radial-gradient(circle at bottom left, #f3e5f5 0%, #e1bee7 100%)", // Lavender
+    gradientDark:
+      "radial-gradient(circle at bottom left, #4A00E0 0%, #8E2DE2 100%)", // Deep Purple
   },
 } as const;
 
