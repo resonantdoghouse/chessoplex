@@ -7,7 +7,7 @@ import GameResultModal from "./GameResultModal";
 import GameInfo from "./GameInfo";
 import MoveHistory from "./MoveHistory";
 import { OPPONENT_NAMES } from "@/lib/constants";
-import ThemeToggle from "./ThemeToggle"; // Pre-emptively adding for next step
+import ThemeToggle from "./ThemeToggle";
 
 export default function ChessGame() {
   const [game, setGame] = useState(new Chess());
@@ -40,7 +40,9 @@ export default function ChessGame() {
   const [threatenedSquares, setThreatenedSquares] = useState<
     Record<string, React.CSSProperties>
   >({});
+  const [showMobileControls, setShowMobileControls] = useState(false);
 
+  // Threat Detection Effect
   useEffect(() => {
     if (!showThreats) {
       setThreatenedSquares({});
@@ -68,7 +70,6 @@ export default function ChessGame() {
             newThreats[square] = {
               background:
                 "radial-gradient(circle, rgba(255, 0, 0, 0.5) 50%, transparent 50%)",
-              // Or full square: backgroundColor: "rgba(255, 0, 0, 0.3)"
             };
           }
         }
@@ -77,6 +78,7 @@ export default function ChessGame() {
     setThreatenedSquares(newThreats);
   }, [game, showThreats]);
 
+  // Mount & Load Effect
   useEffect(() => {
     setMounted(true);
     setStartTime(Date.now());
@@ -84,6 +86,11 @@ export default function ChessGame() {
     // Auto-Load
     const savedPgn = localStorage.getItem("chess_saved_pgn");
     const savedOpponent = localStorage.getItem("chess_saved_opponent");
+    const savedDifficulty = localStorage.getItem("chess_saved_difficulty");
+
+    if (savedDifficulty) {
+      setDifficulty(savedDifficulty as "Easy" | "Medium" | "Hard");
+    }
 
     if (savedPgn && savedOpponent) {
       try {
@@ -91,10 +98,6 @@ export default function ChessGame() {
         loadedGame.loadPgn(savedPgn);
         setGame(loadedGame);
         setOpponentName(savedOpponent);
-        // Optionally check if game is over to show modal?
-        // For now, let's just load the state.
-        // If the game was saved in a 'game over' state, checkGameEnd below would trigger modal if we called it,
-        // but we don't want to show modal immediately on reload if user dismissed it.
       } catch (e) {
         console.error("Failed to load saved game:", e);
         // Fallback to new game
@@ -109,7 +112,7 @@ export default function ChessGame() {
     }
   }, []);
 
-  // Auto-Save
+  // Auto-Save Game Effect
   useEffect(() => {
     if (!mounted) return;
     if (game.pgn()) {
@@ -117,6 +120,12 @@ export default function ChessGame() {
       localStorage.setItem("chess_saved_opponent", opponentName);
     }
   }, [game, opponentName, mounted]);
+
+  // Auto-Save Difficulty Effect
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("chess_saved_difficulty", difficulty);
+  }, [difficulty, mounted]);
 
   function checkGameEnd(currentGame: Chess) {
     if (currentGame.isGameOver()) {
@@ -128,7 +137,7 @@ export default function ChessGame() {
       const seconds = durationSeconds % 60;
       const duration = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
-      const moves = currentGame.moveNumber() - 1; // moveNumber is 1-based and increments after white moves
+      const moves = currentGame.moveNumber() - 1;
 
       let winner: "white" | "black" | "draw" = "draw";
       let reason = "";
@@ -185,17 +194,14 @@ export default function ChessGame() {
   function onSquareClick({ square }: { square: string }) {
     if (isPaused) return;
 
-    // If we click the same square twice, reset
     if (moveFrom === square) {
       setMoveFrom(null);
       setOptionSquares({});
       return;
     }
 
-    // Attempt to move
     if (moveFrom) {
       const moveResult = handleMove(moveFrom, square);
-      // If move was successful, reset state (handled in handleMove somewhat, but let's be explicitly clear)
       if (moveResult) {
         setMoveFrom(null);
         setOptionSquares({});
@@ -203,7 +209,6 @@ export default function ChessGame() {
       }
     }
 
-    // If we are clicking a new piece to possibly move
     const piece = game.get(square as Square);
     if (piece && piece.color === game.turn()) {
       setMoveFrom(square);
@@ -211,7 +216,6 @@ export default function ChessGame() {
       return;
     }
 
-    // Clicked empty square or opponent piece without a valid move source -> reset
     setMoveFrom(null);
     setOptionSquares({});
   }
@@ -221,19 +225,17 @@ export default function ChessGame() {
       const move = game.move({
         from: source,
         to: target,
-        promotion: "q", // always promote to queen for simplicity for now
+        promotion: "q",
       });
 
       if (move === null) return false;
 
-      // Update state with PGN to preserve history
       const newGame = new Chess();
       newGame.loadPgn(game.pgn());
       setGame(newGame);
 
       checkGameEnd(newGame);
 
-      // Schedule computer move if game isn't over
       const delay = getMoveDelay(difficulty);
       setTimeout(() => {
         makeRandomMove(newGame);
@@ -249,11 +251,11 @@ export default function ChessGame() {
   function getMoveDelay(level: "Easy" | "Medium" | "Hard") {
     switch (level) {
       case "Easy":
-        return 1500 + Math.random() * 1000; // Slow: 1.5s - 2.5s
+        return 1500 + Math.random() * 1000;
       case "Medium":
-        return 800 + Math.random() * 500; // Medium: 0.8s - 1.3s
+        return 800 + Math.random() * 500;
       case "Hard":
-        return 200 + Math.random() * 300; // Fast: 0.2s - 0.5s
+        return 200 + Math.random() * 300;
       default:
         return 500;
     }
@@ -293,35 +295,17 @@ export default function ChessGame() {
   }
 
   function togglePause() {
-    console.log(
-      "togglePause called. isPaused:",
-      isPaused,
-      "pauseStartTime:",
-      pauseStartTime
-    );
     if (isPaused) {
       // Resume
       if (pauseStartTime) {
         const pausedDuration = Date.now() - pauseStartTime;
-        console.log("Calculated pausedDuration:", pausedDuration);
-        setTotalPausedTime((prev) => {
-          console.log(
-            "Updating totalPausedTime. Prev:",
-            prev,
-            "New:",
-            prev + pausedDuration
-          );
-          return prev + pausedDuration;
-        });
-      } else {
-        console.error("pauseStartTime is null during resume!");
+        setTotalPausedTime((prev) => prev + pausedDuration);
       }
       setPauseStartTime(null);
       setIsPaused(false);
     } else {
       // Pause
       const now = Date.now();
-      console.log("Pausing at:", now);
       setPauseStartTime(now);
       setIsPaused(true);
     }
@@ -343,22 +327,21 @@ export default function ChessGame() {
       OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)]
     );
 
-    // Clear saved game (but keep difficulty!)
     localStorage.removeItem("chess_saved_pgn");
     localStorage.removeItem("chess_saved_opponent");
-    // Do NOT clear chess_saved_difficulty
   }
 
   if (!mounted) return null;
 
   return (
-    <div className="relative flex flex-col lg:flex-row gap-8 items-start justify-center w-full max-w-7xl mx-auto pt-16 lg:pt-0">
-      <div className="absolute top-0 right-0 z-50">
+    <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 items-start justify-center w-full max-w-7xl mx-auto pt-4 lg:pt-0 px-4">
+      {/* Desktop Theme Toggle (Hidden on Mobile) */}
+      <div className="hidden lg:block absolute top-4 right-4 z-50">
         <ThemeToggle />
       </div>
 
-      {/* Chessboard Area - Glassy container */}
-      <div className="w-full lg:flex-1 max-w-[85vh] aspect-square shadow-2xl rounded-xl overflow-hidden border-8 border-zinc-800/50 dark:border-zinc-800/50 border-zinc-200/50 relative">
+      {/* Chessboard Area - First on Mobile (Order 1) */}
+      <div className="w-full lg:flex-1 aspect-square shadow-2xl rounded-xl overflow-hidden border-4 lg:border-8 border-zinc-800/50 dark:border-zinc-800/50 border-zinc-200/50 relative z-0 order-1 lg:order-1">
         <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900 -z-10"></div>
         <Chessboard
           options={{
@@ -366,17 +349,15 @@ export default function ChessGame() {
             onPieceDrop: onDrop,
             onSquareClick: onSquareClick,
             squareStyles: { ...optionSquares, ...threatenedSquares },
-            // Improve board aesthetics if possible via options, but strict props limit us.
-            // We can check react-chessboard props for custom dark/light squares but let's stick to defaults for now as they are robust.
           }}
         />
         {isPaused && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-10 transition-all duration-500">
             <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
-              <h2 className="text-5xl font-black text-white tracking-wider drop-shadow-lg">
+              <h2 className="text-4xl lg:text-5xl font-black text-white tracking-wider drop-shadow-lg">
                 PAUSED
               </h2>
-              <p className="text-zinc-400 font-mono text-sm">
+              <p className="text-zinc-400 font-mono text-xs lg:text-sm">
                 Game timer is stopped
               </p>
             </div>
@@ -384,10 +365,22 @@ export default function ChessGame() {
         )}
       </div>
 
-      {/* Sidebar - Stats & History */}
-      <div className="w-full lg:w-96 flex flex-col gap-6 shrink-0 h-full max-h-[85vh]">
+      {/* Mobile Info Section - Below Board (Order 2 on Mobile) */}
+      <div className="w-full lg:hidden flex flex-col gap-4 mt-2 order-2">
+        <div className="flex items-center justify-between p-2 bg-white/50 dark:bg-zinc-900/50 rounded-xl border border-black/5 dark:border-white/5 backdrop-blur-sm">
+          <div>
+            <h1 className="text-2xl font-black uppercase text-transparent bg-clip-text bg-gradient-to-br from-zinc-950 to-zinc-700 dark:from-white dark:to-zinc-400 leading-none">
+              Chessoplex
+            </h1>
+            <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 tracking-wider">
+              PREMIUM CHESS
+            </p>
+          </div>
+          <ThemeToggle />
+        </div>
+
         <GameInfo
-          key={gameId}
+          key={`mobile-${gameId}`}
           turn={game.turn()}
           startTime={startTime}
           gameStatus={gameResult ? gameResult.reason : null}
@@ -396,13 +389,63 @@ export default function ChessGame() {
           opponentName={opponentName}
         />
 
-        <div className="flex bg-white/50 dark:bg-black/30 p-1 rounded-xl border border-black/5 dark:border-white/5">
+        <button
+          onClick={() => setShowMobileControls(true)}
+          className="w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black font-black tracking-wider rounded-xl shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
+        >
+          <span>⚙️</span> OPEN CONTROLS
+        </button>
+      </div>
+
+      {/* Sidebar (Desktop) / Drawer (Mobile) - Stats & History */}
+      <div
+        className={`
+            fixed inset-x-0 bottom-0 z-50 p-6 rounded-t-3xl border-t border-black/5 dark:border-white/10
+            bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.3)]
+            transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1)
+            flex flex-col gap-6 shrink-0 h-[85vh] lg:h-auto lg:max-h-[85vh] overflow-y-auto
+            lg:static lg:w-96 lg:bg-transparent lg:dark:bg-transparent lg:border-none lg:shadow-none lg:p-0 lg:rounded-none lg:translate-y-0 lg:order-2
+            ${
+              showMobileControls
+                ? "translate-y-0"
+                : "translate-y-[110%] lg:translate-y-0"
+            }
+        `}
+      >
+        {/* Mobile Drawer Header */}
+        <div className="lg:hidden w-full flex flex-col items-center gap-2 mb-2 sticky top-0 z-50 -mt-2 pt-2">
+          <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
+          <div className="w-full flex justify-between items-center mt-2">
+            <h3 className="font-bold text-lg dark:text-white">Game Controls</h3>
+            <button
+              onClick={() => setShowMobileControls(false)}
+              className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-full font-bold w-10 h-10 flex items-center justify-center transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop Only: Game Info */}
+        <div className="hidden lg:block">
+          <GameInfo
+            key={`desktop-${gameId}`}
+            turn={game.turn()}
+            startTime={startTime}
+            gameStatus={gameResult ? gameResult.reason : null}
+            isPaused={isPaused}
+            totalPausedTime={totalPausedTime}
+            opponentName={opponentName}
+          />
+        </div>
+
+        <div className="flex bg-white/50 dark:bg-black/30 p-1 rounded-xl border border-black/5 dark:border-white/5 shrink-0">
           {(["Easy", "Medium", "Hard"] as const).map((level) => (
             <button
               key={level}
               onClick={() => setDifficulty(level)}
               aria-label={`Select ${level} Difficulty`}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
+              className={`flex-1 py-3 lg:py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
                 difficulty === level
                   ? "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900"
                   : "text-zinc-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
@@ -415,7 +458,7 @@ export default function ChessGame() {
 
         <button
           onClick={() => setShowThreats(!showThreats)}
-          className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all border ${
+          className={`w-full py-4 lg:py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${
             showThreats
               ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20"
               : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"
@@ -424,11 +467,11 @@ export default function ChessGame() {
           {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
         </button>
 
-        <div className="flex-grow overflow-hidden flex flex-col min-h-[300px] lg:min-h-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-black/10 dark:border-white/10 shadow-xl">
+        <div className="flex-grow overflow-hidden flex flex-col min-h-[250px] lg:min-h-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-black/10 dark:border-white/10 shadow-xl">
           <MoveHistory history={game.history()} />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 shrink-0 pb-6 lg:pb-0">
           <button
             onClick={togglePause}
             aria-label={isPaused ? "Resume Game" : "Pause Game"}
