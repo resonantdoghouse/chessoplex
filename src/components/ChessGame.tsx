@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Chess, Square } from "chess.js";
 import { Chessboard as ChessboardBase } from "react-chessboard";
 const Chessboard = ChessboardBase as any;
@@ -10,6 +10,7 @@ import MoveHistory from "./MoveHistory";
 import { OPPONENT_NAMES, BOARD_THEMES, BoardTheme } from "@/lib/constants";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "../hooks/useTheme";
+import { useEngine } from "../hooks/useEngine";
 
 export default function ChessGame() {
   const [game, setGame] = useState(new Chess());
@@ -20,6 +21,10 @@ export default function ChessGame() {
     Record<string, React.CSSProperties>
   >({});
 
+  const engine = useEngine();
+  const [moveAnnotations, setMoveAnnotations] = useState<string[]>([]);
+  const lastEvalRef = useRef<number>(0);
+
   // Game stats state
   const [gameResult, setGameResult] = useState<{
     winner: "w" | "b" | "draw";
@@ -29,10 +34,9 @@ export default function ChessGame() {
     moves: number;
     duration: string;
   } | null>(null);
-  /* eslint-disable react-hooks/exhaustive-deps */
   const [startTime, setStartTime] = useState<number>(0);
 
-  const { theme } = useTheme(); // Moved hook to top level
+  const { theme } = useTheme();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -40,7 +44,7 @@ export default function ChessGame() {
   const [pauseStartTime, setPauseStartTime] = useState<number | null>(null);
   const [gameId, setGameId] = useState(0);
   const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Hard">(
-    "Medium"
+    "Medium",
   );
   const [boardTheme, setBoardTheme] = useState<BoardTheme>("default");
   const [showThreats, setShowThreats] = useState(false);
@@ -57,11 +61,9 @@ export default function ChessGame() {
     }
 
     const newThreats: Record<string, React.CSSProperties> = {};
-    const board = game.board();
     const currentTurn = game.turn();
     const opponentColor = currentTurn === "w" ? "b" : "w";
 
-    // Iterate through all squares
     const rows = ["1", "2", "3", "4", "5", "6", "7", "8"];
     const cols = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
@@ -70,9 +72,7 @@ export default function ChessGame() {
         const square = (col + row) as Square;
         const piece = game.get(square);
 
-        // If square has our piece and is attacked by opponent
         if (piece && piece.color === currentTurn) {
-          // chess.js v1+ support isAttacked
           if (game.isAttacked(square, opponentColor)) {
             newThreats[square] = {
               background:
@@ -89,18 +89,19 @@ export default function ChessGame() {
   useEffect(() => {
     setStartTime(Date.now());
 
-    // Auto-Load
     const savedPgn = localStorage.getItem("chess_saved_pgn");
     const savedOpponent = localStorage.getItem("chess_saved_opponent");
     const savedDifficulty = localStorage.getItem("chess_saved_difficulty");
     const savedTheme = localStorage.getItem("chess_saved_theme") as BoardTheme;
+    const savedAnnotations = localStorage.getItem("chess_saved_annotations");
 
-    if (savedDifficulty) {
+    if (savedDifficulty)
       setDifficulty(savedDifficulty as "Easy" | "Medium" | "Hard");
-    }
-
-    if (savedTheme && BOARD_THEMES[savedTheme]) {
-      setBoardTheme(savedTheme);
+    if (savedTheme && BOARD_THEMES[savedTheme]) setBoardTheme(savedTheme);
+    if (savedAnnotations) {
+      try {
+        setMoveAnnotations(JSON.parse(savedAnnotations));
+      } catch (e) {}
     }
 
     if (savedPgn && savedOpponent) {
@@ -110,26 +111,21 @@ export default function ChessGame() {
         setGame(loadedGame);
         setOpponentName(savedOpponent);
 
-        // Check if the loaded game is already over
         checkGameEnd(loadedGame);
 
-        // FIX: If we loaded a game and it's Black's turn (AI), trigger the move
-        // But only if game is NOT over
         if (!loadedGame.isGameOver() && loadedGame.turn() === "b") {
           setTimeout(() => {
-            makeRandomMove(loadedGame);
+            makeAITurn(loadedGame);
           }, 800);
         }
       } catch (e) {
-        console.error("Failed to load saved game:", e);
-        // Fallback to new game
         setOpponentName(
-          OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)]
+          OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)],
         );
       }
     } else {
       setOpponentName(
-        OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)]
+        OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)],
       );
     }
 
@@ -142,16 +138,18 @@ export default function ChessGame() {
     if (game.pgn()) {
       localStorage.setItem("chess_saved_pgn", game.pgn());
       localStorage.setItem("chess_saved_opponent", opponentName);
+      localStorage.setItem(
+        "chess_saved_annotations",
+        JSON.stringify(moveAnnotations),
+      );
     }
-  }, [game, opponentName, mounted]);
+  }, [game, opponentName, mounted, moveAnnotations]);
 
-  // Auto-Save Difficulty Effect
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem("chess_saved_difficulty", difficulty);
   }, [difficulty, mounted]);
 
-  // Auto-Save Theme Effect
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem("chess_saved_theme", boardTheme);
@@ -161,7 +159,7 @@ export default function ChessGame() {
     if (currentGame.isGameOver()) {
       const endTime = Date.now();
       const durationSeconds = Math.floor(
-        (endTime - startTime - totalPausedTime) / 1000
+        (endTime - startTime - totalPausedTime) / 1000,
       );
       const minutes = Math.floor(durationSeconds / 60);
       const seconds = durationSeconds % 60;
@@ -192,10 +190,7 @@ export default function ChessGame() {
   }
 
   function getMoveOptions(square: string) {
-    const moves = game.moves({
-      square: square as Square,
-      verbose: true,
-    });
+    const moves = game.moves({ square: square as Square, verbose: true });
     if (moves.length === 0) {
       setOptionSquares({});
       return false;
@@ -209,23 +204,19 @@ export default function ChessGame() {
         background:
           piece && piece.color !== game.turn()
             ? "radial-gradient(circle, rgba(255, 0, 0, 0.5) 85%, transparent 85%)"
-            : "radial-gradient(circle, rgba(0, 0, 0, 0.3) 25%, transparent 25%)", // Increased visibility
+            : "radial-gradient(circle, rgba(0, 0, 0, 0.3) 25%, transparent 25%)",
         borderRadius: "50%",
-        boxShadow: "inset 0 0 10px rgba(0,0,0,0.2)", // Add some shadow for visibility
+        boxShadow: "inset 0 0 10px rgba(0,0,0,0.2)",
       };
       return move;
     });
-    newSquares[square] = {
-      background: "rgba(255, 255, 0, 0.6)", // More visible yellow
-    };
+    newSquares[square] = { background: "rgba(255, 255, 0, 0.6)" };
     setOptionSquares(newSquares);
     return true;
   }
 
   function onSquareClick(square: string) {
-    console.log("onSquareClick:", square);
-
-    if (isPaused) return;
+    if (isPaused || game.turn() === "b") return;
 
     if (moveFrom === square) {
       setMoveFrom(null);
@@ -234,12 +225,10 @@ export default function ChessGame() {
     }
 
     if (moveFrom) {
-      const moveResult = handleMove(moveFrom, square);
-      if (moveResult) {
-        setMoveFrom(null);
-        setOptionSquares({});
-        return;
-      }
+      handleMove(moveFrom, square);
+      setMoveFrom(null);
+      setOptionSquares({});
+      return;
     }
 
     const piece = game.get(square as Square);
@@ -253,72 +242,118 @@ export default function ChessGame() {
     setOptionSquares({});
   }
 
-  function handleMove(source: string, target: string) {
+  async function handleMove(source: string, target: string) {
     try {
-      const gameCopy = new Chess();
+      const gameCopy = new Chess(game.fen());
+      // Re-apply history
       gameCopy.loadPgn(game.pgn());
 
-      const move = gameCopy.move({
-        from: source,
-        to: target,
-        promotion: "q",
-      });
-
+      const move = gameCopy.move({ from: source, to: target, promotion: "q" });
       if (move === null) return false;
 
+      // Optimistically update UI
       setGame(gameCopy);
       checkGameEnd(gameCopy);
 
-      const delay = getMoveDelay(difficulty);
+      // Evaluate the move they just made to annotate it
+      if (engine.isReady) {
+        // Quick evaluation of the resulting position
+        const result = await engine.evaluatePosition(gameCopy.fen(), 5);
+        annotateMove(result.evaluation, result.mate, move.color);
+      } else {
+        setMoveAnnotations((prev) => [...prev, ""]);
+      }
+
+      const delay =
+        difficulty === "Easy" ? 1000 : difficulty === "Medium" ? 500 : 200;
       setTimeout(() => {
-        makeRandomMove(gameCopy);
+        makeAITurn(gameCopy);
       }, delay);
 
       return true;
     } catch (error) {
-      // Invalid moves are common (clicking wrong square), so we silence them
-      // console.error("Move error:", error);
       return false;
     }
   }
 
-  function getMoveDelay(level: "Easy" | "Medium" | "Hard") {
-    switch (level) {
-      case "Easy":
-        return 1500 + Math.random() * 1000;
-      case "Medium":
-        return 800 + Math.random() * 500;
-      case "Hard":
-        return 200 + Math.random() * 300;
-      default:
-        return 500;
-    }
-  }
-
   function onDrop(sourceSquare: string, targetSquare: string) {
-    console.log("onDrop:", sourceSquare, targetSquare);
-    if (isPaused) return false;
+    if (isPaused || game.turn() === "b") return false;
     if (!targetSquare) return false;
     return handleMove(sourceSquare, targetSquare);
   }
 
-  function makeRandomMove(startingGame: Chess) {
+  function annotateMove(
+    newEval: number | undefined,
+    mate: number | undefined,
+    color: string,
+  ) {
+    let annotation = "";
+
+    // Very naive annotation logic
+    if (game.moveNumber() <= 4) {
+      annotation = "Book Move";
+    } else if (newEval !== undefined) {
+      // evaluation is from the perspective of white
+      let delta = newEval - lastEvalRef.current;
+      if (color === "b") delta = -delta; // Black wants evaluation to drop
+
+      if (delta < -2.5) annotation = "Blunder";
+      else if (delta < -1.0) annotation = "Mistake";
+      else if (delta > 2.0) annotation = "Great Move";
+
+      lastEvalRef.current = newEval;
+    } else if (mate !== undefined) {
+      let currentMateDirection = mate > 0 ? "w" : "b";
+      if (currentMateDirection !== color) {
+        annotation = "Blunder"; // Gave away mate
+      }
+    }
+
+    setMoveAnnotations((prev) => {
+      const arr = [...prev];
+      arr.push(annotation);
+      return arr;
+    });
+  }
+
+  async function makeAITurn(startingGame: Chess) {
     if (isPaused) return;
 
-    // Use a clone to ensure we have the latest state and don't mutate props
     const tempGame = new Chess();
     tempGame.loadPgn(startingGame.pgn());
 
     const possibleMoves = tempGame.moves();
-    if (
-      tempGame.isGameOver() ||
-      tempGame.isDraw() ||
-      possibleMoves.length === 0
-    )
-      return;
+    if (tempGame.isGameOver() || possibleMoves.length === 0) return;
 
-    const randomIndex = Math.floor(Math.random() * possibleMoves.length);
-    tempGame.move(possibleMoves[randomIndex]);
+    let moveMade = false;
+
+    if (engine.isReady) {
+      const depth = engine.setDifficulty(difficulty);
+      const result = await engine.evaluatePosition(tempGame.fen(), depth || 10);
+
+      if (result.move) {
+        try {
+          const from = result.move.substring(0, 2);
+          const to = result.move.substring(2, 4);
+          const promotion = result.move.length > 4 ? result.move[4] : undefined;
+
+          const moveObj = tempGame.move({ from, to, promotion });
+          if (moveObj) {
+            moveMade = true;
+            annotateMove(result.evaluation, result.mate, "b");
+          }
+        } catch (e) {
+          console.error("Engine move error", e);
+        }
+      }
+    }
+
+    if (!moveMade) {
+      // Fallback or random move if engine fails
+      const randomIndex = Math.floor(Math.random() * possibleMoves.length);
+      tempGame.move(possibleMoves[randomIndex]);
+      setMoveAnnotations((prev) => [...prev, ""]);
+    }
 
     setGame(tempGame);
     checkGameEnd(tempGame);
@@ -326,17 +361,12 @@ export default function ChessGame() {
 
   function togglePause() {
     if (isPaused) {
-      // Resume
-      if (pauseStartTime) {
-        const pausedDuration = Date.now() - pauseStartTime;
-        setTotalPausedTime((prev) => prev + pausedDuration);
-      }
+      if (pauseStartTime)
+        setTotalPausedTime((prev) => prev + (Date.now() - pauseStartTime));
       setPauseStartTime(null);
       setIsPaused(false);
     } else {
-      // Pause
-      const now = Date.now();
-      setPauseStartTime(now);
+      setPauseStartTime(Date.now());
       setIsPaused(true);
     }
   }
@@ -353,36 +383,32 @@ export default function ChessGame() {
     setPauseStartTime(null);
     setIsPaused(false);
     setGameId((prev) => prev + 1);
+    lastEvalRef.current = 0;
+    setMoveAnnotations([]);
     setOpponentName(
-      OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)]
+      OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)],
     );
 
     localStorage.removeItem("chess_saved_pgn");
     localStorage.removeItem("chess_saved_opponent");
+    localStorage.removeItem("chess_saved_annotations");
   }
 
   if (!mounted) return null;
 
-  // Helper to determine panel styles based on theme UI mode
   const isLightUi = (BOARD_THEMES[boardTheme] as any).uiMode === "light";
-
   const panelBaseClass = isLightUi
-    ? "bg-white/90 border-black/10 shadow-xl" // Forced Light Mode
-    : "bg-white/80 dark:bg-zinc-900/80 border-white/20 dark:border-white/10"; // Adaptive
-
+    ? "bg-white/90 border-black/10 shadow-xl"
+    : "bg-white/80 dark:bg-zinc-900/80 border-white/20 dark:border-white/10";
   const textBaseClass = isLightUi
-    ? "text-zinc-950" // Darker black for light mode
+    ? "text-zinc-950"
     : "text-zinc-900 dark:text-white";
-
   const subTextClass = isLightUi
-    ? "text-zinc-600" // Darker grey for light mode
+    ? "text-zinc-600"
     : "text-zinc-500 dark:text-zinc-400";
 
   return (
     <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 items-start justify-center w-full max-w-7xl mx-auto pt-4 lg:pt-0 px-4">
-      {/* DEBUG OVERLAY */}
-
-      {/* Dynamic Background Gradient */}
       <div
         className="fixed inset-0 z-[-1] transition-all duration-1000 ease-in-out"
         style={{
@@ -390,7 +416,7 @@ export default function ChessGame() {
             theme === "dark"
               ? BOARD_THEMES[boardTheme].gradientDark
               : (BOARD_THEMES[boardTheme] as any).gradientLight ||
-                BOARD_THEMES[boardTheme].gradientDark, // Fallback if light missing (TS safety)
+                BOARD_THEMES[boardTheme].gradientDark,
         }}
       />
 
@@ -402,7 +428,6 @@ export default function ChessGame() {
         isLightUi={isLightUi}
       />
 
-      {/* Chessboard Area - First on Mobile (Order 1) */}
       <div className="w-full lg:flex-1 aspect-square shadow-2xl rounded-xl overflow-hidden border-4 lg:border-8 border-zinc-800/50 dark:border-zinc-800/50 border-zinc-200/50 relative z-0 order-1 lg:order-1">
         <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900 -z-10 pointer-events-none"></div>
         {mounted ? (
@@ -412,8 +437,8 @@ export default function ChessGame() {
             position={game.fen()}
             onPieceDrop={onDrop}
             onSquareClick={onSquareClick}
-            onPieceClick={(_: string, square: string) => onSquareClick(square)} // Use onSquareClick for consistency
-            arePiecesDraggable={!isPaused}
+            onPieceClick={(_: string, square: string) => onSquareClick(square)}
+            arePiecesDraggable={!isPaused && game.turn() === "w"}
             customSquareStyles={{ ...optionSquares, ...threatenedSquares }}
             customDarkSquareStyle={{
               backgroundColor: BOARD_THEMES[boardTheme].dark,
@@ -441,7 +466,6 @@ export default function ChessGame() {
         )}
       </div>
 
-      {/* Mobile Info Section - Below Board (Order 2 on Mobile) */}
       <div className="w-full lg:hidden flex flex-col gap-4 mt-2 order-2">
         <div
           className={`flex items-center justify-between p-3 rounded-xl border backdrop-blur-xl shadow-lg ${panelBaseClass}`}
@@ -472,8 +496,6 @@ export default function ChessGame() {
           isLightUi={isLightUi}
         />
 
-        {/* DEBUG OVERLAY */}
-
         <button
           onClick={() => setShowMobileControls(true)}
           className="w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black font-black tracking-wider rounded-xl shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
@@ -482,27 +504,9 @@ export default function ChessGame() {
         </button>
       </div>
 
-      {/* Sidebar (Desktop) / Drawer (Mobile) - Stats & History */}
       <div
-        className={`
-            fixed inset-x-0 bottom-0 z-50 p-4 lg:p-0 rounded-t-3xl lg:rounded-none border-t border-white/20 dark:border-white/10 lg:border-none
-            ${
-              isLightUi
-                ? "bg-white/90 lg:bg-transparent"
-                : "bg-white/80 dark:bg-zinc-900/80 lg:bg-transparent lg:dark:bg-transparent"
-            } 
-            backdrop-blur-xl lg:backdrop-blur-none shadow-[0_-10px_40px_rgba(0,0,0,0.3)] lg:shadow-none
-            transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1)
-            flex flex-col gap-4 shrink-0 h-[85vh] lg:h-[calc(100vh-2rem)] lg:sticky lg:top-4 overflow-hidden
-            lg:w-96 lg:translate-y-0 lg:order-2
-            ${
-              showMobileControls
-                ? "translate-y-0"
-                : "translate-y-[110%] lg:translate-y-0"
-            }
-        `}
+        className={`fixed inset-x-0 bottom-0 z-50 p-4 lg:p-0 rounded-t-3xl lg:rounded-none border-t border-white/20 dark:border-white/10 lg:border-none ${isLightUi ? "bg-white/90 lg:bg-transparent" : "bg-white/80 dark:bg-zinc-900/80 lg:bg-transparent lg:dark:bg-transparent"} backdrop-blur-xl lg:backdrop-blur-none shadow-[0_-10px_40px_rgba(0,0,0,0.3)] lg:shadow-none transition-transform duration-500 flex flex-col gap-4 shrink-0 h-[85vh] lg:h-[calc(100vh-2rem)] lg:sticky lg:top-4 overflow-hidden lg:w-96 lg:translate-y-0 lg:order-2 ${showMobileControls ? "translate-y-0" : "translate-y-[110%] lg:translate-y-0"}`}
       >
-        {/* Mobile Drawer Header */}
         <div className="lg:hidden w-full flex flex-col items-center gap-2 mb-2 sticky top-0 z-50 -mt-2 pt-2 shrink-0">
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
           <div className="w-full flex justify-between items-center mt-2">
@@ -518,17 +522,11 @@ export default function ChessGame() {
           </div>
         </div>
 
-        {/* Scrollable Content Container */}
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-4 pr-1 lg:pr-0">
-          {/* Desktop Only: Game Info & Header */}
           <div className="hidden lg:block shrink-0">
             <div className="flex items-center justify-between mb-6 px-4">
               <h1
-                className={`text-3xl font-black uppercase tracking-widest drop-shadow-2xl transition-colors duration-300 ${
-                  isLightUi
-                    ? "text-zinc-900"
-                    : "text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400"
-                }`}
+                className={`text-3xl font-black uppercase tracking-widest drop-shadow-2xl transition-colors duration-300 ${isLightUi ? "text-zinc-900" : "text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400"}`}
               >
                 Chessoplex
               </h1>
@@ -554,22 +552,13 @@ export default function ChessGame() {
                 key={level}
                 onClick={() => setDifficulty(level)}
                 aria-label={`Select ${level} Difficulty`}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
-                  difficulty === level
-                    ? isLightUi
-                      ? "bg-zinc-900 text-white shadow-md"
-                      : "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900"
-                    : `hover:bg-black/5 ${subTextClass} ${
-                        !isLightUi ? "dark:hover:bg-white/5" : ""
-                      }`
-                }`}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${difficulty === level ? (isLightUi ? "bg-zinc-900 text-white shadow-md" : "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900") : `hover:bg-black/5 ${subTextClass} ${!isLightUi ? "dark:hover:bg-white/5" : ""}`}`}
               >
                 {level}
               </button>
             ))}
           </div>
 
-          {/* Board Theme Selector */}
           <div className="shrink-0">
             <div className="flex justify-between items-end px-1 pb-1">
               <span
@@ -591,17 +580,7 @@ export default function ChessGame() {
                   key={key}
                   onClick={() => setBoardTheme(key as BoardTheme)}
                   title={theme.name}
-                  className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${
-                    boardTheme === key
-                      ? `scale-110 shadow-md ring-2 ${
-                          isLightUi
-                            ? "border-zinc-900 ring-zinc-500/30"
-                            : "border-zinc-900 dark:border-white ring-zinc-500/30"
-                        }`
-                      : `border-transparent hover:border-black/20 ${
-                          !isLightUi ? "dark:hover:border-white/20" : ""
-                        }`
-                  }`}
+                  className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${boardTheme === key ? `scale-110 shadow-md ring-2 ${isLightUi ? "border-zinc-900 ring-zinc-500/30" : "border-zinc-900 dark:border-white ring-zinc-500/30"}` : `border-transparent hover:border-black/20 ${!isLightUi ? "dark:hover:border-white/20" : ""}`}`}
                   style={{
                     background: `linear-gradient(135deg, ${theme.light} 50%, ${theme.dark} 50%)`,
                   }}
@@ -613,45 +592,26 @@ export default function ChessGame() {
 
           <button
             onClick={() => setShowThreats(!showThreats)}
-            className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${
-              showThreats
-                ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20"
-                : `${
-                    isLightUi
-                      ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5"
-                      : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"
-                  }`
-            }`}
+            className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${showThreats ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"}`}`}
           >
             {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
           </button>
 
-          {/* Flexible History Container */}
           <div
-            className={`flex-grow flex flex-col min-h-[150px] rounded-2xl border shadow-2xl ring-1 ring-black/5 overflow-hidden ${
-              isLightUi
-                ? "bg-white/80 border-black/10"
-                : "bg-white/70 dark:bg-zinc-900/70 border-white/20 dark:border-white/10 backdrop-blur-xl"
-            }`}
+            className={`flex-grow flex flex-col min-h-[150px] rounded-2xl border shadow-2xl ring-1 ring-black/5 overflow-hidden ${isLightUi ? "bg-white/80 border-black/10" : "bg-white/70 dark:bg-zinc-900/70 border-white/20 dark:border-white/10 backdrop-blur-xl"}`}
           >
-            <MoveHistory history={game.history()} />
+            <MoveHistory
+              history={game.history({ verbose: true })}
+              annotations={moveAnnotations}
+            />
           </div>
         </div>
 
-        {/* Action Buttons - Always visible at bottom */}
         <div className="grid grid-cols-2 gap-3 shrink-0 pt-2 lg:pt-0">
           <button
             onClick={togglePause}
             aria-label={isPaused ? "Resume Game" : "Pause Game"}
-            className={`py-3 px-6 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${
-              isPaused
-                ? "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white border-yellow-400/50 shadow-yellow-900/40"
-                : `${
-                    isLightUi
-                      ? "bg-white hover:bg-zinc-50 text-zinc-900 border-black/10"
-                      : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"
-                  }`
-            }`}
+            className={`py-3 px-6 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${isPaused ? "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white border-yellow-400/50 shadow-yellow-900/40" : `${isLightUi ? "bg-white hover:bg-zinc-50 text-zinc-900 border-black/10" : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"}`}`}
           >
             {isPaused ? "RESUME" : "PAUSE"}
           </button>
