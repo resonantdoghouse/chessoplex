@@ -180,13 +180,15 @@ export default function ChessGame() {
           reason = "Threefold Repetition";
         else if (currentGame.isInsufficientMaterial())
           reason = "Insufficient Material";
-        else reason = "Draw";
+        else reason = "50-Move Rule";
       }
 
       setGameResult({ winner, reason });
       setGameStats({ moves, duration });
       setIsModalOpen(true);
+      return true;
     }
+    return false;
   }
 
   function getMoveOptions(square: string) {
@@ -253,7 +255,11 @@ export default function ChessGame() {
 
       // Optimistically update UI
       setGame(gameCopy);
-      checkGameEnd(gameCopy);
+      const isEnded = checkGameEnd(gameCopy);
+
+      if (isEnded) {
+        return true; // Cancel engine evaluation/move immediately
+      }
 
       // Evaluate the move they just made to annotate it
       if (engine.isReady) {
