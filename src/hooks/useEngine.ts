@@ -12,6 +12,7 @@ export function useEngine() {
   
   // Pending evaluations
   const resolveTaskRef = useRef<((val: EngineMessage) => void) | null>(null);
+  const lastEvalRef = useRef<{ evaluation?: number; mate?: number }>({});
 
   useEffect(() => {
     const worker = new Worker("/stockfish/stockfish.js");
@@ -39,7 +40,7 @@ export function useEngine() {
         }
         
         // We can update the last known evaluation for this sequence
-        workerRef.current!.lastEval = { evaluation, mate };
+        lastEvalRef.current = { evaluation, mate };
       }
     };
 
@@ -60,12 +61,12 @@ export function useEngine() {
         }
         
         // Clear previous state
-        workerRef.current.lastEval = {};
+        lastEvalRef.current = {};
         resolveTaskRef.current = (result) => {
           resolve({
             move: result.move,
-            evaluation: workerRef.current!.lastEval?.evaluation,
-            mate: workerRef.current!.lastEval?.mate,
+            evaluation: lastEvalRef.current.evaluation,
+            mate: lastEvalRef.current.mate,
           });
         };
 
