@@ -13,7 +13,7 @@ import { OPPONENT_NAMES, BOARD_THEMES, BoardTheme } from "@/lib/constants";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "../hooks/useTheme";
 import { useEngine } from "../hooks/useEngine";
-import { useAudio } from "../hooks/useAudio";
+import { useAudio, SONG_META } from "../hooks/useAudio";
 
 export default function ChessGame() {
   const [game, setGame] = useState(new Chess());
@@ -452,6 +452,31 @@ export default function ChessGame() {
 
       {/* ── Board column ── */}
       <div className="chess-board-column">
+
+        {/* Mobile-only compact audio strip — sits above the board, hidden on desktop
+            where the full AudioControls panel lives at the top of the sidebar */}
+        <div className={`md:hidden flex items-center gap-1.5 p-1.5 rounded-xl border mb-2 shadow-lg shrink-0 ${panelBaseClass}`}>
+          {/* SFX toggle */}
+          <button
+            onClick={() => setSfxEnabled(!sfxEnabled)}
+            title={sfxEnabled ? "Mute SFX" : "Enable SFX"}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${sfxEnabled ? (isLightUi ? "bg-zinc-900 text-white" : "bg-zinc-800 text-white dark:bg-white dark:text-zinc-900") : subTextClass}`}
+          >
+            <span>{sfxEnabled ? "🔊" : "🔇"}</span>
+            <span>SFX</span>
+          </button>
+
+          {/* Music toggle + now-playing label */}
+          <button
+            onClick={toggleBgMusic}
+            title={bgPlaying ? "Stop music" : "Play music"}
+            className={`flex flex-1 items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${bgPlaying ? (isLightUi ? "bg-zinc-900 text-white" : "bg-zinc-800 text-white dark:bg-white dark:text-zinc-900") : subTextClass}`}
+          >
+            <span>{bgPlaying ? "⏸" : "🎵"}</span>
+            <span>{bgPlaying ? `${SONG_META[currentSong].label} · ${currentInstrument === "harpsichord" ? "Harp" : currentInstrument.charAt(0).toUpperCase() + currentInstrument.slice(1)}` : "Music"}</span>
+          </button>
+        </div>
+
         <div className="chess-board-group">
           {/* Eval bar — shown md+ via CSS */}
           <div className="chess-eval-bar">
@@ -508,6 +533,20 @@ export default function ChessGame() {
           <ThemeToggle />
         </div>
 
+        {/* Audio controls — full panel at top of sidebar (desktop); hidden on mobile
+            where the compact strip above the board handles quick access */}
+        <AudioControls
+          sfxEnabled={sfxEnabled}
+          onToggleSfx={() => setSfxEnabled(!sfxEnabled)}
+          bgPlaying={bgPlaying}
+          onToggleBgMusic={toggleBgMusic}
+          currentSong={currentSong}
+          onSetSong={setSong}
+          currentInstrument={currentInstrument}
+          onSetInstrument={setInstrument}
+          isLightUi={isLightUi}
+        />
+
         {/* Game info */}
         <GameInfo
           key={gameId}
@@ -557,19 +596,6 @@ export default function ChessGame() {
             ))}
           </div>
         </div>
-
-        {/* Audio controls */}
-        <AudioControls
-          sfxEnabled={sfxEnabled}
-          onToggleSfx={() => setSfxEnabled(!sfxEnabled)}
-          bgPlaying={bgPlaying}
-          onToggleBgMusic={toggleBgMusic}
-          currentSong={currentSong}
-          onSetSong={setSong}
-          currentInstrument={currentInstrument}
-          onSetInstrument={setInstrument}
-          isLightUi={isLightUi}
-        />
 
         {/* Show threats */}
         <button
