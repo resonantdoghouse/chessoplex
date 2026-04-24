@@ -20,7 +20,101 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-size-adjust: 100%;
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ─── Chess game responsive layout ─── */
+
+.chess-game-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.chess-board-column {
+  width: 100%;
+}
+
+.chess-board-group {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.chess-board-area {
+  flex: 1;
+  aspect-ratio: 1 / 1;
+  position: relative;
+}
+
+.chess-eval-bar {
+  display: none;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.chess-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Tablet portrait and above: side-by-side grid, viewport-locked */
+@media (min-width: 768px) {
+  .chess-game-layout {
+    display: grid;
+    grid-template-columns: 1fr 288px;
+    gap: 1rem;
+    height: 100%;
+    align-items: stretch;
+  }
+
+  .chess-board-column {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chess-board-group {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .chess-eval-bar {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Board sized to min of: (available width minus eval bar) vs (viewport height minus padding) */
+  .chess-board-area {
+    flex: none;
+    width: min(calc(100% - 36px), calc(100dvh - 2rem));
+    aspect-ratio: 1 / 1;
+  }
+
+  .chess-sidebar {
+    height: 100%;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .chess-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Desktop: wider sidebar, larger gap, accounts for bigger padding */
+@media (min-width: 1024px) {
+  .chess-game-layout {
+    grid-template-columns: 1fr 320px;
+    gap: 1.5rem;
+  }
+
+  .chess-board-area {
+    width: min(calc(100% - 36px), calc(100dvh - 3rem));
+  }
 }
 
 

@@ -7,6 +7,7 @@ const Chessboard = ChessboardBase as any;
 import GameOverModal from "./GameOverModal";
 import GameInfo from "./GameInfo";
 import MoveHistory from "./MoveHistory";
+import EvalBar from "./EvalBar";
 import { OPPONENT_NAMES, BOARD_THEMES, BoardTheme } from "@/lib/constants";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "../hooks/useTheme";
@@ -24,6 +25,7 @@ export default function ChessGame() {
   const engine = useEngine();
   const [moveAnnotations, setMoveAnnotations] = useState<string[]>([]);
   const lastEvalRef = useRef<number>(0);
+  const [currentEval, setCurrentEval] = useState<{ evaluation?: number; mate?: number }>({});
 
   // Game stats state
   const [gameResult, setGameResult] = useState<{
@@ -51,8 +53,6 @@ export default function ChessGame() {
   const [threatenedSquares, setThreatenedSquares] = useState<
     Record<string, React.CSSProperties>
   >({});
-  const [showMobileControls, setShowMobileControls] = useState(false);
-
   // Threat Detection Effect
   useEffect(() => {
     if (!showThreats) {
@@ -266,6 +266,7 @@ export default function ChessGame() {
         // Quick evaluation of the resulting position
         const result = await engine.evaluatePosition(gameCopy.fen(), 5);
         annotateMove(result.evaluation, result.mate, move.color);
+        setCurrentEval({ evaluation: result.evaluation, mate: result.mate });
       } else {
         setMoveAnnotations((prev) => [...prev, ""]);
       }
@@ -347,6 +348,7 @@ export default function ChessGame() {
           if (moveObj) {
             moveMade = true;
             annotateMove(result.evaluation, result.mate, "b");
+            setCurrentEval({ evaluation: result.evaluation, mate: result.mate });
           }
         } catch (e) {
           console.error("Engine move error", e);
@@ -391,6 +393,7 @@ export default function ChessGame() {
     setGameId((prev) => prev + 1);
     lastEvalRef.current = 0;
     setMoveAnnotations([]);
+    setCurrentEval({});
     setOpponentName(
       OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)],
     );
@@ -414,7 +417,8 @@ export default function ChessGame() {
     : "text-zinc-500 dark:text-zinc-400";
 
   return (
-    <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 items-start justify-center w-full max-w-7xl mx-auto pt-4 lg:pt-0 px-4">
+    <div className="chess-game-layout w-full max-w-7xl mx-auto">
+      {/* Background gradient */}
       <div
         className="fixed inset-0 z-[-1] transition-all duration-1000 ease-in-out"
         style={{
@@ -434,65 +438,67 @@ export default function ChessGame() {
         isLightUi={isLightUi}
       />
 
-      <div className="w-full lg:flex-1 aspect-square shadow-2xl rounded-xl overflow-hidden border-4 lg:border-8 border-zinc-800/50 dark:border-zinc-800/50 border-zinc-200/50 relative z-0 order-1 lg:order-1">
-        <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900 -z-10 pointer-events-none"></div>
-        {mounted ? (
-          <Chessboard
-            key={boardTheme}
-            id="BasicBoard"
-            position={game.fen()}
-            onPieceDrop={onDrop}
-            onSquareClick={onSquareClick}
-            onPieceClick={(_: string, square: string) => onSquareClick(square)}
-            arePiecesDraggable={!isPaused && game.turn() === "w"}
-            customSquareStyles={{ ...optionSquares, ...threatenedSquares }}
-            customDarkSquareStyle={{
-              backgroundColor: BOARD_THEMES[boardTheme].dark,
-            }}
-            customLightSquareStyle={{
-              backgroundColor: BOARD_THEMES[boardTheme].light,
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded-lg flex items-center justify-center">
-            <span className="text-zinc-400 font-bold">Loading Board...</span>
+      {/* ── Board column ── */}
+      <div className="chess-board-column">
+        <div className="chess-board-group">
+          {/* Eval bar — shown md+ via CSS */}
+          <div className="chess-eval-bar">
+            <EvalBar
+              evaluation={currentEval.evaluation}
+              mate={currentEval.mate}
+              isLightUi={isLightUi}
+            />
           </div>
-        )}
-        {isPaused && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-10 transition-all duration-500">
-            <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
-              <h2 className="text-4xl lg:text-5xl font-black text-white tracking-wider drop-shadow-lg">
-                PAUSED
-              </h2>
-              <p className="text-zinc-400 font-mono text-xs lg:text-sm">
-                Game timer is stopped
-              </p>
-            </div>
+
+          {/* Chess board */}
+          <div className={`chess-board-area shadow-2xl rounded-xl overflow-hidden border-4 md:border-8 border-zinc-800/50 dark:border-zinc-800/50 border-zinc-200/50 z-0`}>
+            <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900 -z-10 pointer-events-none" />
+            <Chessboard
+              key={boardTheme}
+              id="BasicBoard"
+              position={game.fen()}
+              onPieceDrop={onDrop}
+              onSquareClick={onSquareClick}
+              onPieceClick={(_: string, square: string) => onSquareClick(square)}
+              arePiecesDraggable={!isPaused && game.turn() === "w"}
+              customSquareStyles={{ ...optionSquares, ...threatenedSquares }}
+              customDarkSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].dark }}
+              customLightSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].light }}
+            />
+            {isPaused && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-10">
+                <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
+                  <h2 className="text-4xl font-black text-white tracking-wider drop-shadow-lg">
+                    PAUSED
+                  </h2>
+                  <p className="text-zinc-400 font-mono text-xs">Game timer is stopped</p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="w-full lg:hidden flex flex-col gap-4 mt-2 order-2">
-        <div
-          className={`flex items-center justify-between p-3 rounded-xl border backdrop-blur-xl shadow-lg ${panelBaseClass}`}
-        >
+      {/* ── Sidebar / controls column ── */}
+      <div className="chess-sidebar">
+        {/* Title */}
+        <div className="flex items-center justify-between px-1 shrink-0">
           <div>
             <h1
-              className={`text-2xl font-black uppercase tracking-wider leading-none drop-shadow-sm ${textBaseClass}`}
+              className={`text-2xl md:text-3xl font-black uppercase tracking-widest drop-shadow-2xl transition-colors duration-300 ${isLightUi ? "text-zinc-900" : "text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400"}`}
             >
               Chessoplex
             </h1>
-            <p
-              className={`text-[10px] font-bold tracking-wider ${subTextClass}`}
-            >
+            <p className={`text-[10px] font-bold tracking-wider ${subTextClass}`}>
               PREMIUM CHESS
             </p>
           </div>
           <ThemeToggle />
         </div>
 
+        {/* Game info */}
         <GameInfo
-          key={`mobile-${gameId}`}
+          key={gameId}
           turn={game.turn()}
           startTime={startTime}
           gameStatus={gameResult ? gameResult.reason : null}
@@ -502,118 +508,64 @@ export default function ChessGame() {
           isLightUi={isLightUi}
         />
 
-        <button
-          onClick={() => setShowMobileControls(true)}
-          className="w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black font-black tracking-wider rounded-xl shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
-        >
-          <span>⚙️</span> OPEN CONTROLS
-        </button>
-      </div>
-
-      <div
-        className={`fixed inset-x-0 bottom-0 z-50 p-4 lg:p-0 rounded-t-3xl lg:rounded-none border-t border-white/20 dark:border-white/10 lg:border-none ${isLightUi ? "bg-white/90 lg:bg-transparent" : "bg-white/80 dark:bg-zinc-900/80 lg:bg-transparent lg:dark:bg-transparent"} backdrop-blur-xl lg:backdrop-blur-none shadow-[0_-10px_40px_rgba(0,0,0,0.3)] lg:shadow-none transition-transform duration-500 flex flex-col gap-4 shrink-0 h-[85vh] lg:h-[calc(100vh-2rem)] lg:sticky lg:top-4 overflow-hidden lg:w-96 lg:translate-y-0 lg:order-2 ${showMobileControls ? "translate-y-0" : "translate-y-[110%] lg:translate-y-0"}`}
-      >
-        <div className="lg:hidden w-full flex flex-col items-center gap-2 mb-2 sticky top-0 z-50 -mt-2 pt-2 shrink-0">
-          <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
-          <div className="w-full flex justify-between items-center mt-2">
-            <h3 className={`font-bold text-lg ${textBaseClass}`}>
-              Game Controls
-            </h3>
+        {/* Difficulty */}
+        <div className={`flex p-1 rounded-xl border shrink-0 shadow-lg ${panelBaseClass}`}>
+          {(["Easy", "Medium", "Hard"] as const).map((level) => (
             <button
-              onClick={() => setShowMobileControls(false)}
-              className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-full font-bold w-10 h-10 flex items-center justify-center transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
+              key={level}
+              onClick={() => setDifficulty(level)}
+              aria-label={`Select ${level} Difficulty`}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${difficulty === level ? (isLightUi ? "bg-zinc-900 text-white shadow-md" : "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900") : `hover:bg-black/5 ${subTextClass} ${!isLightUi ? "dark:hover:bg-white/5" : ""}`}`}
             >
-              ✕
+              {level}
             </button>
-          </div>
+          ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-4 pr-1 lg:pr-0">
-          <div className="hidden lg:block shrink-0">
-            <div className="flex items-center justify-between mb-6 px-4">
-              <h1
-                className={`text-3xl font-black uppercase tracking-widest drop-shadow-2xl transition-colors duration-300 ${isLightUi ? "text-zinc-900" : "text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400"}`}
-              >
-                Chessoplex
-              </h1>
-              <ThemeToggle />
-            </div>
-            <GameInfo
-              key={`desktop-${gameId}`}
-              turn={game.turn()}
-              startTime={startTime}
-              gameStatus={gameResult ? gameResult.reason : null}
-              isPaused={isPaused}
-              totalPausedTime={totalPausedTime}
-              opponentName={opponentName}
-              isLightUi={isLightUi}
-            />
+        {/* Board theme */}
+        <div className="shrink-0">
+          <div className="flex justify-between items-end px-1 pb-1">
+            <span className={`text-xs font-bold uppercase tracking-wider ${subTextClass}`}>
+              Theme
+            </span>
+            <span className={`text-xs font-black uppercase tracking-widest ${textBaseClass}`}>
+              {BOARD_THEMES[boardTheme].name}
+            </span>
           </div>
-
-          <div
-            className={`flex p-1 rounded-xl border shrink-0 shadow-lg ${panelBaseClass}`}
-          >
-            {(["Easy", "Medium", "Hard"] as const).map((level) => (
+          <div className={`grid grid-cols-4 gap-2 p-3 rounded-xl border shadow-lg ${panelBaseClass}`}>
+            {Object.entries(BOARD_THEMES).map(([key, theme]) => (
               <button
-                key={level}
-                onClick={() => setDifficulty(level)}
-                aria-label={`Select ${level} Difficulty`}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${difficulty === level ? (isLightUi ? "bg-zinc-900 text-white shadow-md" : "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900") : `hover:bg-black/5 ${subTextClass} ${!isLightUi ? "dark:hover:bg-white/5" : ""}`}`}
-              >
-                {level}
-              </button>
+                key={key}
+                onClick={() => setBoardTheme(key as BoardTheme)}
+                title={theme.name}
+                className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${boardTheme === key ? `scale-110 shadow-md ring-2 ${isLightUi ? "border-zinc-900 ring-zinc-500/30" : "border-zinc-900 dark:border-white ring-zinc-500/30"}` : `border-transparent hover:border-black/20 ${!isLightUi ? "dark:hover:border-white/20" : ""}`}`}
+                style={{ background: `linear-gradient(135deg, ${theme.light} 50%, ${theme.dark} 50%)` }}
+                aria-label={`Select ${theme.name} Theme`}
+              />
             ))}
           </div>
-
-          <div className="shrink-0">
-            <div className="flex justify-between items-end px-1 pb-1">
-              <span
-                className={`text-xs font-bold uppercase tracking-wider ${subTextClass}`}
-              >
-                Theme
-              </span>
-              <span
-                className={`text-xs font-black uppercase tracking-widest ${textBaseClass}`}
-              >
-                {BOARD_THEMES[boardTheme].name}
-              </span>
-            </div>
-            <div
-              className={`grid grid-cols-4 gap-2 p-3 rounded-xl border shrink-0 shadow-lg ${panelBaseClass}`}
-            >
-              {Object.entries(BOARD_THEMES).map(([key, theme]) => (
-                <button
-                  key={key}
-                  onClick={() => setBoardTheme(key as BoardTheme)}
-                  title={theme.name}
-                  className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${boardTheme === key ? `scale-110 shadow-md ring-2 ${isLightUi ? "border-zinc-900 ring-zinc-500/30" : "border-zinc-900 dark:border-white ring-zinc-500/30"}` : `border-transparent hover:border-black/20 ${!isLightUi ? "dark:hover:border-white/20" : ""}`}`}
-                  style={{
-                    background: `linear-gradient(135deg, ${theme.light} 50%, ${theme.dark} 50%)`,
-                  }}
-                  aria-label={`Select ${theme.name} Theme`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowThreats(!showThreats)}
-            className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${showThreats ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"}`}`}
-          >
-            {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
-          </button>
-
-          <div
-            className={`flex-grow flex flex-col min-h-[150px] rounded-2xl border shadow-2xl ring-1 ring-black/5 overflow-hidden ${isLightUi ? "bg-white/80 border-black/10" : "bg-white/70 dark:bg-zinc-900/70 border-white/20 dark:border-white/10 backdrop-blur-xl"}`}
-          >
-            <MoveHistory
-              history={game.history({ verbose: true })}
-              annotations={moveAnnotations}
-            />
-          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 shrink-0 pt-2 lg:pt-0">
+        {/* Show threats */}
+        <button
+          onClick={() => setShowThreats(!showThreats)}
+          className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${showThreats ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"}`}`}
+        >
+          {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
+        </button>
+
+        {/* Move history */}
+        <div
+          className={`min-h-[150px] md:flex-1 rounded-2xl border shadow-2xl ring-1 ring-black/5 overflow-hidden ${isLightUi ? "bg-white/80 border-black/10" : "bg-white/70 dark:bg-zinc-900/70 border-white/20 dark:border-white/10 backdrop-blur-xl"}`}
+        >
+          <MoveHistory
+            history={game.history({ verbose: true })}
+            annotations={moveAnnotations}
+          />
+        </div>
+
+        {/* Pause / New game */}
+        <div className="grid grid-cols-2 gap-3 shrink-0 pb-2 md:pb-0">
           <button
             onClick={togglePause}
             aria-label={isPaused ? "Resume Game" : "Pause Game"}
