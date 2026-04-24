@@ -81,7 +81,7 @@ src/
 
 ## Deployment
 
-Deploy instantly on [Vercel](https://vercel.com/new):
+Deploy instantly on [Netlify](https://netlify.com):
 
 ```bash
 npm run build
