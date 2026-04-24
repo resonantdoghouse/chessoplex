@@ -8,10 +8,12 @@ import GameOverModal from "./GameOverModal";
 import GameInfo from "./GameInfo";
 import MoveHistory from "./MoveHistory";
 import EvalBar from "./EvalBar";
+import AudioControls from "./AudioControls";
 import { OPPONENT_NAMES, BOARD_THEMES, BoardTheme } from "@/lib/constants";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "../hooks/useTheme";
 import { useEngine } from "../hooks/useEngine";
+import { useAudio } from "../hooks/useAudio";
 
 export default function ChessGame() {
   const [game, setGame] = useState(new Chess());
@@ -23,6 +25,7 @@ export default function ChessGame() {
   >({});
 
   const engine = useEngine();
+  const { playMoveSound, sfxEnabled, setSfxEnabled, bgPlaying, toggleBgMusic } = useAudio();
   const [moveAnnotations, setMoveAnnotations] = useState<string[]>([]);
   const lastEvalRef = useRef<number>(0);
   const [currentEval, setCurrentEval] = useState<{ evaluation?: number; mate?: number }>({});
@@ -255,6 +258,7 @@ export default function ChessGame() {
 
       // Optimistically update UI
       setGame(gameCopy);
+      playMoveSound();
       const isEnded = checkGameEnd(gameCopy);
 
       if (isEnded) {
@@ -347,6 +351,7 @@ export default function ChessGame() {
           const moveObj = tempGame.move({ from, to, promotion });
           if (moveObj) {
             moveMade = true;
+            playMoveSound();
             annotateMove(result.evaluation, result.mate, "b");
             setCurrentEval({ evaluation: result.evaluation, mate: result.mate });
           }
@@ -360,6 +365,7 @@ export default function ChessGame() {
       // Fallback or random move if engine fails
       const randomIndex = Math.floor(Math.random() * possibleMoves.length);
       tempGame.move(possibleMoves[randomIndex]);
+      playMoveSound();
       setMoveAnnotations((prev) => [...prev, ""]);
     }
 
@@ -545,6 +551,15 @@ export default function ChessGame() {
             ))}
           </div>
         </div>
+
+        {/* Audio controls */}
+        <AudioControls
+          sfxEnabled={sfxEnabled}
+          onToggleSfx={() => setSfxEnabled(!sfxEnabled)}
+          bgPlaying={bgPlaying}
+          onToggleBgMusic={toggleBgMusic}
+          isLightUi={isLightUi}
+        />
 
         {/* Show threats */}
         <button
