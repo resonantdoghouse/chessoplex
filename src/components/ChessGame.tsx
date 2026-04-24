@@ -25,7 +25,13 @@ export default function ChessGame() {
   >({});
 
   const engine = useEngine();
-  const { playMoveSound, sfxEnabled, setSfxEnabled, bgPlaying, toggleBgMusic } = useAudio();
+  const {
+    playMoveSound,
+    sfxEnabled, setSfxEnabled,
+    bgPlaying, toggleBgMusic,
+    currentSong, setSong,
+    currentInstrument, setInstrument,
+  } = useAudio();
   const [moveAnnotations, setMoveAnnotations] = useState<string[]>([]);
   const lastEvalRef = useRef<number>(0);
   const [currentEval, setCurrentEval] = useState<{ evaluation?: number; mate?: number }>({});
@@ -558,6 +564,10 @@ export default function ChessGame() {
           onToggleSfx={() => setSfxEnabled(!sfxEnabled)}
           bgPlaying={bgPlaying}
           onToggleBgMusic={toggleBgMusic}
+          currentSong={currentSong}
+          onSetSong={setSong}
+          currentInstrument={currentInstrument}
+          onSetInstrument={setInstrument}
           isLightUi={isLightUi}
         />
 
