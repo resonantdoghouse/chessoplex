@@ -27,6 +27,7 @@ export default function ChessGame() {
   const engine = useEngine();
   const {
     playMoveSound,
+    playCaptureSound,
     sfxEnabled, setSfxEnabled,
     bgPlaying, toggleBgMusic,
     currentSong, setSong,
@@ -264,7 +265,7 @@ export default function ChessGame() {
 
       // Optimistically update UI
       setGame(gameCopy);
-      playMoveSound();
+      if (move.captured) playCaptureSound(); else playMoveSound();
       const isEnded = checkGameEnd(gameCopy);
 
       if (isEnded) {
@@ -357,7 +358,7 @@ export default function ChessGame() {
           const moveObj = tempGame.move({ from, to, promotion });
           if (moveObj) {
             moveMade = true;
-            playMoveSound();
+            if (moveObj.captured) playCaptureSound(); else playMoveSound();
             annotateMove(result.evaluation, result.mate, "b");
             setCurrentEval({ evaluation: result.evaluation, mate: result.mate });
           }
@@ -370,8 +371,8 @@ export default function ChessGame() {
     if (!moveMade) {
       // Fallback or random move if engine fails
       const randomIndex = Math.floor(Math.random() * possibleMoves.length);
-      tempGame.move(possibleMoves[randomIndex]);
-      playMoveSound();
+      const fallbackMove = tempGame.move(possibleMoves[randomIndex]);
+      if (fallbackMove?.captured) playCaptureSound(); else playMoveSound();
       setMoveAnnotations((prev) => [...prev, ""]);
     }
 
@@ -559,6 +560,24 @@ export default function ChessGame() {
           isLightUi={isLightUi}
         />
 
+        {/* Pause / New game */}
+        <div className="grid grid-cols-2 gap-3 shrink-0">
+          <button
+            onClick={togglePause}
+            aria-label={isPaused ? "Resume Game" : "Pause Game"}
+            className={`py-3 px-6 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${isPaused ? "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white border-yellow-400/50 shadow-yellow-900/40" : `${isLightUi ? "bg-white hover:bg-zinc-50 text-zinc-900 border-black/10" : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"}`}`}
+          >
+            {isPaused ? "RESUME" : "PAUSE"}
+          </button>
+          <button
+            onClick={resetGame}
+            aria-label="Start New Game"
+            className="w-full py-3 px-6 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border border-white/10"
+          >
+            NEW GAME
+          </button>
+        </div>
+
         {/* Difficulty */}
         <div className={`flex p-1 rounded-xl border shrink-0 shadow-lg ${panelBaseClass}`}>
           {(["Easy", "Medium", "Hard"] as const).map((level) => (
@@ -615,23 +634,6 @@ export default function ChessGame() {
           />
         </div>
 
-        {/* Pause / New game */}
-        <div className="grid grid-cols-2 gap-3 shrink-0 pb-2 md:pb-0">
-          <button
-            onClick={togglePause}
-            aria-label={isPaused ? "Resume Game" : "Pause Game"}
-            className={`py-3 px-6 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${isPaused ? "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white border-yellow-400/50 shadow-yellow-900/40" : `${isLightUi ? "bg-white hover:bg-zinc-50 text-zinc-900 border-black/10" : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"}`}`}
-          >
-            {isPaused ? "RESUME" : "PAUSE"}
-          </button>
-          <button
-            onClick={resetGame}
-            aria-label="Start New Game"
-            className="w-full py-3 px-6 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border border-white/10"
-          >
-            NEW GAME
-          </button>
-        </div>
       </div>
     </div>
   );

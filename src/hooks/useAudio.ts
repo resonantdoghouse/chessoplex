@@ -410,6 +410,44 @@ export function useAudio() {
     }, Math.max(0, msUntil));
   }
 
+  // ── SFX: capture — retro descending blip + impact crack ───────────────────
+  const playCaptureSound = useCallback(() => {
+    if (!sfxEnabledRef.current) return;
+    const ctx = getCtx();
+    if (ctx.state === "suspended") ctx.resume();
+    const dest = masterRef.current ?? ctx.destination;
+    const now  = ctx.currentTime;
+
+    // Descending triangle-wave pitch sweep (NES triangle channel feel)
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(520, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.13);
+    const oscG = ctx.createGain();
+    oscG.gain.setValueAtTime(0.28, now);
+    oscG.gain.linearRampToValueAtTime(0.28, now + 0.01);
+    oscG.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+    osc.connect(oscG); oscG.connect(dest);
+    osc.start(now); osc.stop(now + 0.18);
+
+    // Short impact noise burst at the hit
+    const nLen  = Math.floor(ctx.sampleRate * 0.04);
+    const nBuf  = ctx.createBuffer(1, nLen, ctx.sampleRate);
+    const nData = nBuf.getChannelData(0);
+    for (let i = 0; i < nLen; i++)
+      nData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / nLen, 0.6);
+    const noise = ctx.createBufferSource();
+    noise.buffer = nBuf;
+    const noiseF = ctx.createBiquadFilter();
+    noiseF.type = "bandpass";
+    noiseF.frequency.value = 1600;
+    noiseF.Q.value = 1.2;
+    const noiseG = ctx.createGain();
+    noiseG.gain.value = 0.18;
+    noise.connect(noiseF); noiseF.connect(noiseG); noiseG.connect(dest);
+    noise.start(now);
+  }, []);
+
   // ── SFX: wood piece-slide ASMR ─────────────────────────────────────────────
   const playMoveSound = useCallback(() => {
     if (!sfxEnabledRef.current) return;
@@ -537,6 +575,7 @@ export function useAudio() {
 
   return {
     playMoveSound,
+    playCaptureSound,
     sfxEnabled,       setSfxEnabled,
     bgPlaying,        toggleBgMusic,
     currentSong,      setSong,
