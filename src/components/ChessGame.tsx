@@ -14,6 +14,8 @@ import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "../hooks/useTheme";
 import { useEngine } from "../hooks/useEngine";
 import { useAudio } from "../hooks/useAudio";
+import { useVoice, sanToSpeech } from "../hooks/useVoice";
+import { getOpeningName } from "@/lib/openings";
 
 export default function ChessGame() {
   const [game, setGame] = useState(new Chess());
@@ -33,7 +35,10 @@ export default function ChessGame() {
     currentSong, setSong,
     currentInstrument, setInstrument,
   } = useAudio();
+  const { speak, voiceEnabled, setVoiceEnabled, voiceVolume, setVoiceVolume, verbosity, setVerbosity } = useVoice();
   const [moveAnnotations, setMoveAnnotations] = useState<string[]>([]);
+  const lastSpokenAnnotationCountRef = useRef(0);
+  const lastSpokenOpeningRef = useRef<string | null>(null);
   const lastEvalRef = useRef<number>(0);
   const [currentEval, setCurrentEval] = useState<{ evaluation?: number; mate?: number }>({});
 
@@ -151,6 +156,43 @@ export default function ChessGame() {
 
     setMounted(true);
   }, []);
+
+  // Voice announcement — fires when a new annotation is settled
+  useEffect(() => {
+    if (!voiceEnabled) return;
+    if (moveAnnotations.length <= lastSpokenAnnotationCountRef.current) return;
+    lastSpokenAnnotationCountRef.current = moveAnnotations.length;
+
+    const moveIdx = moveAnnotations.length - 1;
+    const history = game.history({ verbose: true });
+    const move = history[moveIdx];
+    if (!move) return;
+
+    const annotation = moveAnnotations[moveIdx];
+
+    // Announce opening name when it first appears or changes
+    const currentOpening = getOpeningName(history.slice(0, moveIdx + 1).map((m) => m.san));
+    const openingChanged = currentOpening && currentOpening !== lastSpokenOpeningRef.current;
+    if (openingChanged) lastSpokenOpeningRef.current = currentOpening;
+
+    // "events" mode: only speak when there's an annotation or opening change
+    if (verbosity === "events" && !annotation && !openingChanged) return;
+
+    const parts: string[] = [];
+
+    if (verbosity === "full") {
+      const color = moveIdx % 2 === 0 ? "White" : "Black";
+      parts.push(`${color}, ${sanToSpeech(move.san)}`);
+    } else if (verbosity === "brief") {
+      parts.push(sanToSpeech(move.san));
+    }
+    // "events": no move name — only annotation / opening below
+
+    if (annotation) parts.push(annotation);
+    if (openingChanged) parts.push(currentOpening!);
+
+    if (parts.length > 0) speak(parts.join(". "));
+  }, [moveAnnotations, voiceEnabled, verbosity, game, speak]);
 
   // Auto-Save Game Effect
   useEffect(() => {
@@ -364,7 +406,7 @@ export default function ChessGame() {
       if (color === "b") delta = -delta; // Black wants evaluation to drop
 
       if (delta < -2.5) annotation = "Blunder";
-      else if (delta < -1.0) annotation = "Mistake";
+      else if (delta < -1.0) annotation = "Blunder";
       else if (delta > 2.0) annotation = "Great Move";
 
       lastEvalRef.current = newEval;
@@ -670,6 +712,45 @@ export default function ChessGame() {
                   >
                     {showTutor ? "🎓 Tutor: ON" : "🎓 Tutor: OFF"}
                   </button>
+                  <button
+                    onClick={() => setVoiceEnabled(!voiceEnabled)}
+                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all border col-span-2 ${voiceEnabled ? "bg-violet-500/90 hover:bg-violet-600 text-white border-violet-400 shadow-md shadow-violet-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/5 hover:bg-white/10 text-zinc-400 border-white/5"}`}`}
+                  >
+                    {voiceEnabled ? "🔊 Voice: ON" : "🔊 Voice: OFF"}
+                  </button>
+                  {voiceEnabled && (
+                    <>
+                      <div className={`col-span-2 flex items-center gap-2 px-1 py-1 rounded-xl border ${isLightUi ? "bg-white/50 border-black/5" : "bg-white/5 border-white/5"}`}>
+                        <span className={`text-[10px] font-bold shrink-0 ${subTextClass}`}>VOL</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={voiceVolume}
+                          onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
+                          aria-label="Voice volume"
+                          className="flex-1 h-1.5 accent-violet-500 cursor-pointer"
+                        />
+                        <span className={`text-[10px] font-bold w-7 text-right shrink-0 ${subTextClass}`}>
+                          {Math.round(voiceVolume * 100)}%
+                        </span>
+                      </div>
+                      <div className={`col-span-2 flex p-1 rounded-xl border ${panelBaseClass}`}>
+                        {(["full", "brief", "events"] as const).map((level) => (
+                          <button
+                            key={level}
+                            onClick={() => setVerbosity(level)}
+                            aria-label={`Set voice verbosity to ${level}`}
+                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg capitalize transition-all duration-200 ${verbosity === level ? "bg-violet-500 text-white shadow-md" : `hover:bg-black/5 ${subTextClass} ${!isLightUi ? "dark:hover:bg-white/5" : ""}`}`}
+                          >
+                            {level}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
                 </div>
               </div>
 

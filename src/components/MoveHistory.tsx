@@ -61,11 +61,12 @@ export default function MoveHistory({
     );
   }
 
+  const displayAnnotation = (ann: string) =>
+    ann === "Mistake" ? "Blunder" : ann;
+
   const getAnnotationClass = (ann: string) => {
-    if (ann === "Blunder")
+    if (ann === "Blunder" || ann === "Mistake")
       return "text-red-600 dark:text-red-400 font-bold bg-red-100 dark:bg-red-900/30 px-1 ml-1 rounded text-[10px]";
-    if (ann === "Mistake")
-      return "text-orange-500 dark:text-orange-400 font-bold bg-orange-100 dark:bg-orange-900/30 px-1 ml-1 rounded text-[10px]";
     if (ann === "Great Move")
       return "text-blue-600 dark:text-blue-400 font-bold bg-blue-100 dark:bg-blue-900/30 px-1 ml-1 rounded text-[10px]";
     if (ann === "Book Move")
@@ -106,7 +107,7 @@ export default function MoveHistory({
                     <span className="truncate">{pair.white.san}</span>
                     {pair.whiteAnnotation && (
                       <span className={getAnnotationClass(pair.whiteAnnotation)}>
-                        {pair.whiteAnnotation}
+                        {displayAnnotation(pair.whiteAnnotation)}
                       </span>
                     )}
                   </span>
@@ -123,7 +124,7 @@ export default function MoveHistory({
                         <span className="truncate">{pair.black.san}</span>
                         {pair.blackAnnotation && (
                           <span className={getAnnotationClass(pair.blackAnnotation)}>
-                            {pair.blackAnnotation}
+                            {displayAnnotation(pair.blackAnnotation)}
                           </span>
                         )}
                       </span>
