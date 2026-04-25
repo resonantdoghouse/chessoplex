@@ -556,7 +556,7 @@ export default function ChessGame() {
         {/* ── Header: title + settings toggle + dark mode ── */}
         <div className="flex items-center justify-between px-1 shrink-0">
           <div>
-            <h1 className={`text-xl md:text-2xl font-black uppercase tracking-widest drop-shadow-2xl transition-colors duration-300 ${isLightUi ? "text-zinc-900" : "text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400"}`}>
+            <h1 className={`text-xl md:text-2xl font-black uppercase tracking-widest transition-colors duration-300 ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
               Chessoplex
             </h1>
             <p className={`text-[10px] font-bold tracking-wider ${subTextClass}`}>PREMIUM CHESS</p>
