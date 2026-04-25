@@ -562,22 +562,21 @@ export default function ChessGame() {
             <p className={`text-[10px] font-bold tracking-wider ${subTextClass}`}>PREMIUM CHESS</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Settings toggle button */}
+            {/* Settings toggle — styled to match ThemeToggle */}
             <button
               onClick={() => setShowSettings(s => !s)}
               aria-label={showSettings ? "Close settings" : "Open settings"}
-              className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold border transition-all duration-200 ${
+              className={`p-2.5 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 ${
                 showSettings
-                  ? isLightUi
-                    ? "bg-zinc-900 text-white border-zinc-700 shadow-md"
-                    : "bg-white text-zinc-900 border-white/20 shadow-md"
-                  : isLightUi
-                    ? "bg-white/70 text-zinc-600 border-black/10 hover:bg-white hover:text-zinc-900"
-                    : "bg-white/10 text-zinc-300 border-white/10 hover:bg-white/20"
+                  ? theme === "dark"
+                    ? "bg-white text-zinc-900 shadow-lg border-2 border-white/30 ring-1 ring-black/20"
+                    : "bg-zinc-900 text-white shadow-lg border-2 border-zinc-700 ring-1 ring-black/10"
+                  : theme === "dark"
+                    ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 shadow-lg border-2 border-zinc-600/20 ring-1 ring-black/20"
+                    : "bg-white text-zinc-600 hover:bg-zinc-50 shadow-lg border-2 border-zinc-200 ring-1 ring-black/5"
               }`}
             >
-              {/* Gear / close icon */}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {showSettings ? (
                   <>
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -590,7 +589,6 @@ export default function ChessGame() {
                   </>
                 )}
               </svg>
-              <span className="tracking-wide">{showSettings ? "CLOSE" : "SETTINGS"}</span>
             </button>
             <ThemeToggle />
           </div>
