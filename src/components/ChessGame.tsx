@@ -63,6 +63,10 @@ export default function ChessGame() {
   const [threatenedSquares, setThreatenedSquares] = useState<
     Record<string, React.CSSProperties>
   >({});
+  const [showTutor, setShowTutor] = useState(false);
+  const [tutorSquares, setTutorSquares] = useState<
+    Record<string, React.CSSProperties>
+  >({});
   // Threat Detection Effect
   useEffect(() => {
     if (!showThreats) {
@@ -106,11 +110,13 @@ export default function ChessGame() {
     const savedTheme = localStorage.getItem("chess_saved_theme") as BoardTheme;
     const savedAnnotations = localStorage.getItem("chess_saved_annotations");
     const savedShowThreats = localStorage.getItem("chess_saved_show_threats") === "true";
+    const savedShowTutor   = localStorage.getItem("chess_saved_show_tutor")   === "true";
 
     if (savedDifficulty)
       setDifficulty(savedDifficulty as "Easy" | "Medium" | "Hard");
     if (savedTheme && BOARD_THEMES[savedTheme]) setBoardTheme(savedTheme);
     if (savedShowThreats) setShowThreats(true);
+    if (savedShowTutor)   setShowTutor(true);
     if (savedAnnotations) {
       try {
         setMoveAnnotations(JSON.parse(savedAnnotations));
@@ -176,6 +182,35 @@ export default function ChessGame() {
     if (!mounted) return;
     localStorage.setItem("chess_saved_show_threats", String(showThreats));
   }, [showThreats, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("chess_saved_show_tutor", String(showTutor));
+  }, [showTutor, mounted]);
+
+  // Tutor: request best move from engine when it's the player's turn
+  useEffect(() => {
+    if (!showTutor || !engine.isReady || game.turn() !== "w" || game.isGameOver() || isPaused) {
+      setTutorSquares({});
+      return;
+    }
+
+    let cancelled = false;
+    engine.evaluatePosition(game.fen(), 12).then((result) => {
+      if (cancelled || !result.move) return;
+      const from = result.move.substring(0, 2);
+      const to   = result.move.substring(2, 4);
+      setTutorSquares({
+        [from]: { background: "rgba(34, 197, 94, 0.45)" },
+        [to]: {
+          background:
+            "radial-gradient(circle, rgba(34, 197, 94, 0.85) 28%, transparent 28%)",
+        },
+      });
+    });
+
+    return () => { cancelled = true; };
+  }, [showTutor, game, engine.isReady, isPaused]);
 
   function checkGameEnd(currentGame: Chess) {
     if (currentGame.isGameOver()) {
@@ -426,6 +461,7 @@ export default function ChessGame() {
     lastEvalRef.current = 0;
     setMoveAnnotations([]);
     setCurrentEval({});
+    setTutorSquares({});
     setOpponentName(
       OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)],
     );
@@ -520,7 +556,7 @@ export default function ChessGame() {
               onSquareClick={onSquareClick}
               onPieceClick={(_: string, square: string) => onSquareClick(square)}
               arePiecesDraggable={!isPaused && game.turn() === "w"}
-              customSquareStyles={{ ...optionSquares, ...threatenedSquares }}
+              customSquareStyles={{ ...tutorSquares, ...threatenedSquares, ...optionSquares }}
               customDarkSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].dark }}
               customLightSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].light }}
             />
@@ -637,13 +673,21 @@ export default function ChessGame() {
           </div>
         </div>
 
-        {/* Show threats */}
-        <button
-          onClick={() => setShowThreats(!showThreats)}
-          className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all border shrink-0 ${showThreats ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"}`}`}
-        >
-          {showThreats ? "🛡️ THREATS VISIBLE" : "🛡️ SHOW THREATS"}
-        </button>
+        {/* Show threats / Tutor */}
+        <div className="grid grid-cols-2 gap-3 shrink-0">
+          <button
+            onClick={() => setShowThreats(!showThreats)}
+            className={`py-3 px-4 rounded-xl font-bold text-sm transition-all border ${showThreats ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"}`}`}
+          >
+            {showThreats ? "🛡️ ON" : "🛡️ THREATS"}
+          </button>
+          <button
+            onClick={() => setShowTutor(!showTutor)}
+            className={`py-3 px-4 rounded-xl font-bold text-sm transition-all border ${showTutor ? "bg-emerald-500/90 hover:bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"}`}`}
+          >
+            {showTutor ? "🎓 ON" : "🎓 TUTOR"}
+          </button>
+        </div>
 
         {/* Move history */}
         <div
