@@ -69,6 +69,8 @@ export default function ChessGame() {
     Record<string, React.CSSProperties>
   >({});
   const [showTutor, setShowTutor] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [autoPlaySpeed, setAutoPlaySpeed] = useState<"Fastest" | "Fast" | "Normal" | "Slow">("Normal");
   const [tutorSquares, setTutorSquares] = useState<
     Record<string, React.CSSProperties>
   >({});
@@ -117,12 +119,16 @@ export default function ChessGame() {
     const savedAnnotations = localStorage.getItem("chess_saved_annotations");
     const savedShowThreats = localStorage.getItem("chess_saved_show_threats") === "true";
     const savedShowTutor   = localStorage.getItem("chess_saved_show_tutor")   === "true";
+    const savedAutoPlay    = localStorage.getItem("chess_saved_auto_play")    === "true";
+    const savedAutoPlaySpeed = localStorage.getItem("chess_saved_auto_play_speed");
 
     if (savedDifficulty)
       setDifficulty(savedDifficulty as "Easy" | "Medium" | "Hard");
     if (savedTheme && BOARD_THEMES[savedTheme]) setBoardTheme(savedTheme);
     if (savedShowThreats) setShowThreats(true);
     if (savedShowTutor)   setShowTutor(true);
+    if (savedAutoPlay)    setAutoPlay(true);
+    if (savedAutoPlaySpeed) setAutoPlaySpeed(savedAutoPlaySpeed as any);
     if (savedAnnotations) {
       try {
         setMoveAnnotations(JSON.parse(savedAnnotations));
@@ -138,11 +144,6 @@ export default function ChessGame() {
 
         checkGameEnd(loadedGame);
 
-        if (!loadedGame.isGameOver() && loadedGame.turn() === "b") {
-          setTimeout(() => {
-            makeAITurn(loadedGame);
-          }, 800);
-        }
       } catch (e) {
         setOpponentName(
           OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)],
@@ -231,6 +232,36 @@ export default function ChessGame() {
     localStorage.setItem("chess_saved_show_tutor", String(showTutor));
   }, [showTutor, mounted]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("chess_saved_auto_play", String(autoPlay));
+  }, [autoPlay, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("chess_saved_auto_play_speed", autoPlaySpeed);
+  }, [autoPlaySpeed, mounted]);
+
+  // AI Turn Scheduler
+  useEffect(() => {
+    if (!mounted || isPaused || game.isGameOver() || !engine.isReady) return;
+
+    if (autoPlay || game.turn() === "b") {
+      let delay = difficulty === "Easy" ? 1000 : difficulty === "Medium" ? 500 : 200;
+      if (autoPlay) {
+        if (autoPlaySpeed === "Fastest") delay = 200;
+        else if (autoPlaySpeed === "Fast") delay = 800;
+        else if (autoPlaySpeed === "Normal") delay = 2000;
+        else if (autoPlaySpeed === "Slow") delay = 4000;
+      }
+
+      const timeoutId = setTimeout(() => {
+        makeAITurn(game);
+      }, delay);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [game.fen(), autoPlay, autoPlaySpeed, isPaused, difficulty, engine.isReady, mounted]);
+
   // Tutor: request best move from engine when it's the player's turn
   useEffect(() => {
     if (!showTutor || !engine.isReady || game.turn() !== "w" || game.isGameOver() || isPaused) {
@@ -318,7 +349,7 @@ export default function ChessGame() {
   }
 
   function onSquareClick(square: string) {
-    if (isPaused || game.turn() === "b") return;
+    if (isPaused || game.turn() === "b" || autoPlay) return;
 
     if (moveFrom === square) {
       setMoveFrom(null);
@@ -372,12 +403,6 @@ export default function ChessGame() {
         setMoveAnnotations((prev) => [...prev, ""]);
       }
 
-      const delay =
-        difficulty === "Easy" ? 1000 : difficulty === "Medium" ? 500 : 200;
-      setTimeout(() => {
-        makeAITurn(gameCopy);
-      }, delay);
-
       return true;
     } catch (error) {
       return false;
@@ -385,7 +410,7 @@ export default function ChessGame() {
   }
 
   function onDrop(sourceSquare: string, targetSquare: string) {
-    if (isPaused || game.turn() === "b") return false;
+    if (isPaused || game.turn() === "b" || autoPlay) return false;
     if (!targetSquare) return false;
     return handleMove(sourceSquare, targetSquare);
   }
@@ -433,6 +458,7 @@ export default function ChessGame() {
     const possibleMoves = tempGame.moves();
     if (tempGame.isGameOver() || possibleMoves.length === 0) return;
 
+    const colorMakingMove = tempGame.turn();
     let moveMade = false;
 
     if (engine.isReady) {
@@ -449,7 +475,7 @@ export default function ChessGame() {
           if (moveObj) {
             moveMade = true;
             if (moveObj.captured) playCaptureSound(); else playMoveSound();
-            annotateMove(result.evaluation, result.mate, "b");
+            annotateMove(result.evaluation, result.mate, colorMakingMove);
             setCurrentEval({ evaluation: result.evaluation, mate: result.mate });
           }
         } catch (e) {
@@ -530,7 +556,7 @@ export default function ChessGame() {
     : "text-zinc-500 dark:text-zinc-400";
 
   return (
-    <div className="chess-game-layout w-full max-w-7xl mx-auto">
+    <div className="chess-game-layout w-full max-w-7xl mx-auto md:h-full md:max-h-[920px]">
       {/* Background gradient */}
       <div
         className="fixed inset-0 z-[-1] transition-all duration-1000 ease-in-out"
@@ -573,7 +599,7 @@ export default function ChessGame() {
               onPieceDrop={onDrop}
               onSquareClick={onSquareClick}
               onPieceClick={(_: string, square: string) => onSquareClick(square)}
-              arePiecesDraggable={!isPaused && game.turn() === "w"}
+              arePiecesDraggable={!isPaused && game.turn() === "w" && !autoPlay}
               customSquareStyles={{ ...tutorSquares, ...threatenedSquares, ...optionSquares }}
               customDarkSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].dark }}
               customLightSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].light }}
@@ -595,7 +621,7 @@ export default function ChessGame() {
       {/* ── Sidebar / controls column ── */}
       <div className="chess-sidebar">
 
-        {/* ── Header: title + settings toggle + dark mode ── */}
+        {/* ── Header: title + settings toggle ── */}
         <div className="flex items-center justify-between px-1 shrink-0">
           <div>
             <h1 className={`text-xl md:text-2xl font-black uppercase tracking-widest transition-colors duration-300 ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
@@ -604,7 +630,7 @@ export default function ChessGame() {
             <p className={`text-[10px] font-bold tracking-wider ${subTextClass}`}>PREMIUM CHESS</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Settings toggle — styled to match ThemeToggle */}
+            {/* Settings toggle */}
             <button
               onClick={() => setShowSettings(s => !s)}
               aria-label={showSettings ? "Close settings" : "Open settings"}
@@ -632,125 +658,159 @@ export default function ChessGame() {
                 )}
               </svg>
             </button>
-            <ThemeToggle />
           </div>
         </div>
 
         {/* ── Settings panel (collapsible) ── */}
         <div className={`grid transition-all duration-300 ease-in-out shrink-0 ${showSettings ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="overflow-hidden">
-            <div className={`flex flex-col gap-4 rounded-xl border p-3 ${panelBaseClass}`}>
+            <div className={`p-4 grid grid-cols-1 gap-5 rounded-xl border ${panelBaseClass}`}>
 
-              {/* Audio */}
-              <div className="flex flex-col gap-1.5">
-                <p className={`text-[10px] font-bold uppercase tracking-widest px-0.5 ${subTextClass}`}>Audio</p>
-                <AudioControls
-                  sfxEnabled={sfxEnabled}
-                  onToggleSfx={() => setSfxEnabled(!sfxEnabled)}
-                  bgPlaying={bgPlaying}
-                  onToggleBgMusic={toggleBgMusic}
-                  currentSong={currentSong}
-                  onSetSong={setSong}
-                  currentInstrument={currentInstrument}
-                  onSetInstrument={setInstrument}
-                  isLightUi={isLightUi}
-                />
-              </div>
-
-              {/* Difficulty */}
-              <div className="flex flex-col gap-1.5">
-                <p className={`text-[10px] font-bold uppercase tracking-widest px-0.5 ${subTextClass}`}>Difficulty</p>
-                <div className={`flex p-1 rounded-xl border ${panelBaseClass}`}>
-                  {(["Easy", "Medium", "Hard"] as const).map((level) => (
-                    <button
-                      key={level}
-                      onClick={() => setDifficulty(level)}
-                      aria-label={`Set difficulty to ${level}`}
-                      className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${difficulty === level ? (isLightUi ? "bg-zinc-900 text-white shadow-md" : "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900") : `hover:bg-black/5 ${subTextClass} ${!isLightUi ? "dark:hover:bg-white/5" : ""}`}`}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Board theme */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center px-0.5">
-                  <p className={`text-[10px] font-bold uppercase tracking-widest ${subTextClass}`}>Board Theme</p>
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${textBaseClass}`}>
-                    {BOARD_THEMES[boardTheme].name}
-                  </span>
-                </div>
-                <div className={`grid grid-cols-8 gap-2 p-2.5 rounded-xl border ${panelBaseClass}`}>
-                  {Object.entries(BOARD_THEMES).map(([key, t]) => (
-                    <button
-                      key={key}
-                      onClick={() => setBoardTheme(key as BoardTheme)}
-                      title={t.name}
-                      aria-label={`Select ${t.name} theme`}
-                      className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${boardTheme === key ? `scale-110 shadow-md ring-2 ${isLightUi ? "border-zinc-900 ring-zinc-500/30" : "border-zinc-900 dark:border-white ring-zinc-500/30"}` : `border-transparent hover:border-black/20 ${!isLightUi ? "dark:hover:border-white/20" : ""}`}`}
-                      style={{ background: `linear-gradient(135deg, ${t.light} 50%, ${t.dark} 50%)` }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Analysis tools */}
-              <div className="flex flex-col gap-1.5">
-                <p className={`text-[10px] font-bold uppercase tracking-widest px-0.5 ${subTextClass}`}>Analysis Tools</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setShowThreats(!showThreats)}
-                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all border ${showThreats ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/5 hover:bg-white/10 text-zinc-400 border-white/5"}`}`}
-                  >
-                    {showThreats ? "🛡️ Threats: ON" : "🛡️ Threats: OFF"}
-                  </button>
-                  <button
-                    onClick={() => setShowTutor(!showTutor)}
-                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all border ${showTutor ? "bg-emerald-500/90 hover:bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/5 hover:bg-white/10 text-zinc-400 border-white/5"}`}`}
-                  >
-                    {showTutor ? "🎓 Tutor: ON" : "🎓 Tutor: OFF"}
-                  </button>
-                  <button
-                    onClick={() => setVoiceEnabled(!voiceEnabled)}
-                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all border col-span-2 ${voiceEnabled ? "bg-violet-500/90 hover:bg-violet-600 text-white border-violet-400 shadow-md shadow-violet-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/5 hover:bg-white/10 text-zinc-400 border-white/5"}`}`}
-                  >
-                    {voiceEnabled ? "🔊 Voice: ON" : "🔊 Voice: OFF"}
-                  </button>
-                  {voiceEnabled && (
-                    <>
-                      <div className={`col-span-2 flex items-center gap-2 px-1 py-1 rounded-xl border ${isLightUi ? "bg-white/50 border-black/5" : "bg-white/5 border-white/5"}`}>
-                        <span className={`text-[10px] font-bold shrink-0 ${subTextClass}`}>VOL</span>
-                        <input
-                          type="range"
-                          min={0}
-                          max={1}
-                          step={0.05}
-                          value={voiceVolume}
-                          onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
-                          aria-label="Voice volume"
-                          className="flex-1 h-1.5 accent-violet-500 cursor-pointer"
+              {/* ── Appearance ── */}
+              <div className="flex flex-col gap-2">
+                <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${subTextClass}`}>Appearance</p>
+                <div className={`flex flex-col gap-3 p-4 rounded-xl border bg-white/40 dark:bg-black/20 ${isLightUi ? "border-black/5" : "border-white/5"}`}>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-sm font-bold ${textBaseClass}`}>App Theme</span>
+                    <ThemeToggle />
+                  </div>
+                  <div className="h-px w-full bg-black/5 dark:bg-white/5" />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm font-bold ${textBaseClass}`}>Board Theme</span>
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${subTextClass}`}>
+                        {BOARD_THEMES[boardTheme].name}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-8 gap-1.5 mt-1">
+                      {Object.entries(BOARD_THEMES).map(([key, t]) => (
+                        <button
+                          key={key}
+                          onClick={() => setBoardTheme(key as BoardTheme)}
+                          title={t.name}
+                          aria-label={`Select ${t.name} theme`}
+                          className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${boardTheme === key ? `scale-110 shadow-md ring-2 ${isLightUi ? "border-zinc-900 ring-zinc-500/30" : "border-zinc-900 dark:border-white ring-zinc-500/30"}` : `border-transparent hover:border-black/20 ${!isLightUi ? "dark:hover:border-white/20" : ""}`}`}
+                          style={{ background: `linear-gradient(135deg, ${t.light} 50%, ${t.dark} 50%)` }}
                         />
-                        <span className={`text-[10px] font-bold w-7 text-right shrink-0 ${subTextClass}`}>
-                          {Math.round(voiceVolume * 100)}%
-                        </span>
-                      </div>
-                      <div className={`col-span-2 flex p-1 rounded-xl border ${panelBaseClass}`}>
-                        {(["full", "brief", "events"] as const).map((level) => (
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Gameplay ── */}
+              <div className="flex flex-col gap-2">
+                <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${subTextClass}`}>Gameplay</p>
+                <div className={`flex flex-col gap-3 p-4 rounded-xl border bg-white/40 dark:bg-black/20 ${isLightUi ? "border-black/5" : "border-white/5"}`}>
+                  <div className="flex flex-col gap-2">
+                    <span className={`text-sm font-bold ${textBaseClass}`}>Engine Difficulty</span>
+                    <div className="flex p-1 rounded-xl border bg-black/5 dark:bg-white/5 border-transparent">
+                      {(["Easy", "Medium", "Hard"] as const).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setDifficulty(level)}
+                          className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${difficulty === level ? (isLightUi ? "bg-white text-zinc-900 shadow-md" : "bg-zinc-700 text-white shadow-md") : `hover:bg-black/5 dark:hover:bg-white/5 ${subTextClass}`}`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-px w-full bg-black/5 dark:bg-white/5" />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm font-bold ${textBaseClass}`}>AutoPlay AI Match</span>
+                      <button
+                        onClick={() => setAutoPlay(!autoPlay)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75 ${autoPlay ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
+                      >
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${autoPlay ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+                    {autoPlay && (
+                      <div className="flex p-1 mt-1 rounded-xl border bg-black/5 dark:bg-white/5 border-transparent animate-in slide-in-from-top-2 duration-200">
+                        {(["Fastest", "Fast", "Normal", "Slow"] as const).map((speed) => (
                           <button
-                            key={level}
-                            onClick={() => setVerbosity(level)}
-                            aria-label={`Set voice verbosity to ${level}`}
-                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg capitalize transition-all duration-200 ${verbosity === level ? "bg-violet-500 text-white shadow-md" : `hover:bg-black/5 ${subTextClass} ${!isLightUi ? "dark:hover:bg-white/5" : ""}`}`}
+                            key={speed}
+                            onClick={() => setAutoPlaySpeed(speed)}
+                            className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${autoPlaySpeed === speed ? "bg-blue-500 text-white shadow-md" : `hover:bg-black/5 dark:hover:bg-white/5 ${subTextClass}`}`}
                           >
-                            {level}
+                            {speed}
                           </button>
                         ))}
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
+                </div>
+              </div>
 
+              {/* ── Assistance ── */}
+              <div className="flex flex-col gap-2">
+                <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${subTextClass}`}>Assistance</p>
+                <div className={`flex flex-col gap-3 p-4 rounded-xl border bg-white/40 dark:bg-black/20 ${isLightUi ? "border-black/5" : "border-white/5"}`}>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-sm font-bold ${textBaseClass}`}>Threat Indicators</span>
+                    <button onClick={() => setShowThreats(!showThreats)} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${showThreats ? 'bg-red-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${showThreats ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-sm font-bold ${textBaseClass}`}>Engine Tutor</span>
+                    <button onClick={() => setShowTutor(!showTutor)} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${showTutor ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${showTutor ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                  <div className="h-px w-full bg-black/5 dark:bg-white/5" />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm font-bold ${textBaseClass}`}>Voice Announcer</span>
+                      <button onClick={() => setVoiceEnabled(!voiceEnabled)} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${voiceEnabled ? 'bg-violet-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${voiceEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+                    {voiceEnabled && (
+                      <div className="flex flex-col gap-3 pt-2 animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center gap-3 px-1">
+                          <span className={`text-[10px] font-bold ${subTextClass} w-6`}>VOL</span>
+                          <input
+                            type="range" min={0} max={1} step={0.05} value={voiceVolume}
+                            onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
+                            className="flex-1 h-1.5 accent-violet-500 cursor-pointer"
+                          />
+                          <span className={`text-[10px] font-bold ${subTextClass} w-8 text-right`}>{Math.round(voiceVolume * 100)}%</span>
+                        </div>
+                        <div className="flex p-1 rounded-xl border bg-black/5 dark:bg-white/5 border-transparent">
+                          {(["full", "brief", "events"] as const).map((level) => (
+                            <button
+                              key={level}
+                              onClick={() => setVerbosity(level)}
+                              className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${verbosity === level ? "bg-violet-500 text-white shadow-md" : `hover:bg-black/5 dark:hover:bg-white/5 ${subTextClass}`}`}
+                            >
+                              {level}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Audio ── */}
+              <div className="flex flex-col gap-2">
+                <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${subTextClass}`}>Audio</p>
+                <div className={`flex flex-col gap-3 p-4 rounded-xl border h-full bg-white/40 dark:bg-black/20 ${isLightUi ? "border-black/5" : "border-white/5"}`}>
+                  <AudioControls
+                    sfxEnabled={sfxEnabled}
+                    onToggleSfx={() => setSfxEnabled(!sfxEnabled)}
+                    bgPlaying={bgPlaying}
+                    onToggleBgMusic={toggleBgMusic}
+                    currentSong={currentSong}
+                    onSetSong={setSong}
+                    currentInstrument={currentInstrument}
+                    onSetInstrument={setInstrument}
+                    isLightUi={isLightUi}
+                  />
                 </div>
               </div>
 
