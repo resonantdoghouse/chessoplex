@@ -310,6 +310,12 @@ function noteMarimba(ctx: AudioContext, dest: AudioNode, freq: number, t: number
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export function useAudio() {
+  // Restore persisted audio preferences (IIFEs run on every render but only
+  // affect the initial hook values on mount — cheap localStorage reads)
+  const initSfx   = (() => { try { return localStorage.getItem("chess_audio_sfx")        !== "false"; } catch { return true;        } })();
+  const initSong  = (() => { try { return (localStorage.getItem("chess_audio_song")        as SongId)       || "bach";  } catch { return "bach"  as SongId;  } })();
+  const initInstr = (() => { try { return (localStorage.getItem("chess_audio_instrument") as InstrumentId) || "piano"; } catch { return "piano" as InstrumentId; } })();
+
   const ctxRef          = useRef<AudioContext | null>(null);
   const masterRef       = useRef<GainNode | null>(null);
   const bgGainRef       = useRef<GainNode | null>(null);
@@ -317,17 +323,17 @@ export function useAudio() {
   // Disconnecting it instantly silences all pre-scheduled oscillators for that loop.
   const loopGainRef     = useRef<GainNode | null>(null);
   const bgPlayingRef    = useRef(false);
-  const sfxEnabledRef   = useRef(true);
-  const songRef         = useRef<SongId>("bach");
-  const instrRef        = useRef<InstrumentId>("piano");
+  const sfxEnabledRef   = useRef(initSfx);
+  const songRef         = useRef<SongId>(initSong);
+  const instrRef        = useRef<InstrumentId>(initInstr);
   const loopTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextLoopAtRef   = useRef(0);
 
-  const [sfxEnabled,        _setSfxEnabled]       = useState(true);
+  const [sfxEnabled,        _setSfxEnabled]       = useState(initSfx);
   const [bgPlaying,         _setBgPlaying]         = useState(false);
-  const [currentSong,       _setCurrentSong]       = useState<SongId>("bach");
-  const [currentInstrument, _setCurrentInstrument] = useState<InstrumentId>("piano");
+  const [currentSong,       _setCurrentSong]       = useState<SongId>(initSong);
+  const [currentInstrument, _setCurrentInstrument] = useState<InstrumentId>(initInstr);
 
   // ── Lazy AudioContext + convolution reverb ─────────────────────────────────
   function getCtx(): AudioContext {
@@ -546,6 +552,7 @@ export function useAudio() {
     if (id === songRef.current) return;
     songRef.current = id;
     _setCurrentSong(id);
+    try { localStorage.setItem("chess_audio_song", id); } catch {}
     if (bgPlayingRef.current) restartLoop();
   }, []);
 
@@ -554,6 +561,7 @@ export function useAudio() {
     if (id === instrRef.current) return;
     instrRef.current = id;
     _setCurrentInstrument(id);
+    try { localStorage.setItem("chess_audio_instrument", id); } catch {}
     if (bgPlayingRef.current) restartLoop();
   }, []);
 
@@ -561,6 +569,7 @@ export function useAudio() {
   const setSfxEnabled = useCallback((val: boolean) => {
     sfxEnabledRef.current = val;
     _setSfxEnabled(val);
+    try { localStorage.setItem("chess_audio_sfx", String(val)); } catch {}
   }, []);
 
   // ── Cleanup ────────────────────────────────────────────────────────────────

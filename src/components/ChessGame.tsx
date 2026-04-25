@@ -97,17 +97,20 @@ export default function ChessGame() {
 
   // Mount & Load Effect
   useEffect(() => {
-    setStartTime(Date.now());
+    const savedElapsedMs = parseInt(localStorage.getItem("chess_saved_elapsed_ms") || "0", 10);
+    setStartTime(Date.now() - savedElapsedMs);
 
     const savedPgn = localStorage.getItem("chess_saved_pgn");
     const savedOpponent = localStorage.getItem("chess_saved_opponent");
     const savedDifficulty = localStorage.getItem("chess_saved_difficulty");
     const savedTheme = localStorage.getItem("chess_saved_theme") as BoardTheme;
     const savedAnnotations = localStorage.getItem("chess_saved_annotations");
+    const savedShowThreats = localStorage.getItem("chess_saved_show_threats") === "true";
 
     if (savedDifficulty)
       setDifficulty(savedDifficulty as "Easy" | "Medium" | "Hard");
     if (savedTheme && BOARD_THEMES[savedTheme]) setBoardTheme(savedTheme);
+    if (savedShowThreats) setShowThreats(true);
     if (savedAnnotations) {
       try {
         setMoveAnnotations(JSON.parse(savedAnnotations));
@@ -152,8 +155,12 @@ export default function ChessGame() {
         "chess_saved_annotations",
         JSON.stringify(moveAnnotations),
       );
+      localStorage.setItem(
+        "chess_saved_elapsed_ms",
+        String(Date.now() - startTime - totalPausedTime),
+      );
     }
-  }, [game, opponentName, mounted, moveAnnotations]);
+  }, [game, opponentName, mounted, moveAnnotations, startTime, totalPausedTime]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -164,6 +171,11 @@ export default function ChessGame() {
     if (!mounted) return;
     localStorage.setItem("chess_saved_theme", boardTheme);
   }, [boardTheme, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("chess_saved_show_threats", String(showThreats));
+  }, [showThreats, mounted]);
 
   function checkGameEnd(currentGame: Chess) {
     if (currentGame.isGameOver()) {
@@ -387,6 +399,13 @@ export default function ChessGame() {
       setPauseStartTime(null);
       setIsPaused(false);
     } else {
+      // Snapshot elapsed before the timer freezes so a reload restores correctly
+      if (game.pgn()) {
+        localStorage.setItem(
+          "chess_saved_elapsed_ms",
+          String(Date.now() - startTime - totalPausedTime),
+        );
+      }
       setPauseStartTime(Date.now());
       setIsPaused(true);
     }
@@ -414,6 +433,8 @@ export default function ChessGame() {
     localStorage.removeItem("chess_saved_pgn");
     localStorage.removeItem("chess_saved_opponent");
     localStorage.removeItem("chess_saved_annotations");
+    localStorage.removeItem("chess_saved_elapsed_ms");
+    localStorage.removeItem("chess_saved_show_threats");
   }
 
   if (!mounted) return null;
