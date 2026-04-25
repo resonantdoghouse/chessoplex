@@ -74,6 +74,8 @@ export default function ChessGame() {
   const [tutorSquares, setTutorSquares] = useState<
     Record<string, React.CSSProperties>
   >({});
+  const [playerColorSetting, setPlayerColorSetting] = useState<"Random" | "White" | "Black">("Random");
+  const [currentPlayerColor, setCurrentPlayerColor] = useState<"w" | "b">("w");
   const [showSettings, setShowSettings] = useState(false);
   // Threat Detection Effect
   useEffect(() => {
@@ -121,6 +123,8 @@ export default function ChessGame() {
     const savedShowTutor   = localStorage.getItem("chess_saved_show_tutor")   === "true";
     const savedAutoPlay    = localStorage.getItem("chess_saved_auto_play")    === "true";
     const savedAutoPlaySpeed = localStorage.getItem("chess_saved_auto_play_speed");
+    const savedPlayerColorSetting = localStorage.getItem("chess_saved_player_color_setting") as "Random" | "White" | "Black" | null;
+    const savedCurrentPlayerColor = localStorage.getItem("chess_saved_current_player_color") as "w" | "b" | null;
 
     if (savedDifficulty)
       setDifficulty(savedDifficulty as "Easy" | "Medium" | "Hard");
@@ -129,6 +133,21 @@ export default function ChessGame() {
     if (savedShowTutor)   setShowTutor(true);
     if (savedAutoPlay)    setAutoPlay(true);
     if (savedAutoPlaySpeed) setAutoPlaySpeed(savedAutoPlaySpeed as any);
+    if (savedPlayerColorSetting) setPlayerColorSetting(savedPlayerColorSetting);
+    
+    if (savedCurrentPlayerColor) {
+      setCurrentPlayerColor(savedCurrentPlayerColor);
+    } else {
+      let newColor: "w" | "b" = "w";
+      const settingToUse = savedPlayerColorSetting || "Random";
+      if (settingToUse === "Random") {
+        newColor = Math.random() < 0.5 ? "w" : "b";
+      } else {
+        newColor = settingToUse === "White" ? "w" : "b";
+      }
+      setCurrentPlayerColor(newColor);
+    }
+
     if (savedAnnotations) {
       try {
         setMoveAnnotations(JSON.parse(savedAnnotations));
@@ -242,11 +261,21 @@ export default function ChessGame() {
     localStorage.setItem("chess_saved_auto_play_speed", autoPlaySpeed);
   }, [autoPlaySpeed, mounted]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("chess_saved_player_color_setting", playerColorSetting);
+  }, [playerColorSetting, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("chess_saved_current_player_color", currentPlayerColor);
+  }, [currentPlayerColor, mounted]);
+
   // AI Turn Scheduler
   useEffect(() => {
     if (!mounted || isPaused || game.isGameOver() || !engine.isReady) return;
 
-    if (autoPlay || game.turn() === "b") {
+    if (autoPlay || game.turn() !== currentPlayerColor) {
       let delay = difficulty === "Easy" ? 1000 : difficulty === "Medium" ? 500 : 200;
       if (autoPlay) {
         if (autoPlaySpeed === "Fastest") delay = 200;
@@ -260,11 +289,11 @@ export default function ChessGame() {
       }, delay);
       return () => clearTimeout(timeoutId);
     }
-  }, [game.fen(), autoPlay, autoPlaySpeed, isPaused, difficulty, engine.isReady, mounted]);
+  }, [game.fen(), autoPlay, autoPlaySpeed, isPaused, difficulty, engine.isReady, mounted, currentPlayerColor]);
 
   // Tutor: request best move from engine when it's the player's turn
   useEffect(() => {
-    if (!showTutor || !engine.isReady || game.turn() !== "w" || game.isGameOver() || isPaused) {
+    if (!showTutor || !engine.isReady || game.turn() !== currentPlayerColor || game.isGameOver() || isPaused) {
       setTutorSquares({});
       return;
     }
@@ -284,7 +313,7 @@ export default function ChessGame() {
     });
 
     return () => { cancelled = true; };
-  }, [showTutor, game, engine.isReady, isPaused]);
+  }, [showTutor, game, engine.isReady, isPaused, currentPlayerColor]);
 
   function checkGameEnd(currentGame: Chess) {
     if (currentGame.isGameOver()) {
@@ -349,7 +378,7 @@ export default function ChessGame() {
   }
 
   function onSquareClick(square: string) {
-    if (isPaused || game.turn() === "b" || autoPlay) return;
+    if (isPaused || game.turn() !== currentPlayerColor || autoPlay) return;
 
     if (moveFrom === square) {
       setMoveFrom(null);
@@ -410,7 +439,7 @@ export default function ChessGame() {
   }
 
   function onDrop(sourceSquare: string, targetSquare: string) {
-    if (isPaused || game.turn() === "b" || autoPlay) return false;
+    if (isPaused || game.turn() !== currentPlayerColor || autoPlay) return false;
     if (!targetSquare) return false;
     return handleMove(sourceSquare, targetSquare);
   }
@@ -535,6 +564,15 @@ export default function ChessGame() {
       OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)],
     );
 
+    let newColor: "w" | "b" = "w";
+    const settingToUse = playerColorSetting;
+    if (settingToUse === "Random") {
+      newColor = Math.random() < 0.5 ? "w" : "b";
+    } else {
+      newColor = settingToUse === "White" ? "w" : "b";
+    }
+    setCurrentPlayerColor(newColor);
+
     localStorage.removeItem("chess_saved_pgn");
     localStorage.removeItem("chess_saved_opponent");
     localStorage.removeItem("chess_saved_annotations");
@@ -595,11 +633,12 @@ export default function ChessGame() {
             <Chessboard
               key={boardTheme}
               id="BasicBoard"
+              boardOrientation={currentPlayerColor === "w" ? "white" : "black"}
               position={game.fen()}
               onPieceDrop={onDrop}
               onSquareClick={onSquareClick}
               onPieceClick={(_: string, square: string) => onSquareClick(square)}
-              arePiecesDraggable={!isPaused && game.turn() === "w" && !autoPlay}
+              arePiecesDraggable={!isPaused && game.turn() === currentPlayerColor && !autoPlay}
               customSquareStyles={{ ...tutorSquares, ...threatenedSquares, ...optionSquares }}
               customDarkSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].dark }}
               customLightSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].light }}
@@ -702,6 +741,21 @@ export default function ChessGame() {
               <div className="flex flex-col gap-2">
                 <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${subTextClass}`}>Gameplay</p>
                 <div className={`flex flex-col gap-3 p-4 rounded-xl border bg-white/40 dark:bg-black/20 ${isLightUi ? "border-black/5" : "border-white/5"}`}>
+                  <div className="flex flex-col gap-2">
+                    <span className={`text-sm font-bold ${textBaseClass}`}>Play As (Next Game)</span>
+                    <div className="flex p-1 rounded-xl border bg-black/5 dark:bg-white/5 border-transparent">
+                      {(["Random", "White", "Black"] as const).map((colorOpt) => (
+                        <button
+                          key={colorOpt}
+                          onClick={() => setPlayerColorSetting(colorOpt)}
+                          className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${playerColorSetting === colorOpt ? (isLightUi ? "bg-white text-zinc-900 shadow-md" : "bg-zinc-700 text-white shadow-md") : `hover:bg-black/5 dark:hover:bg-white/5 ${subTextClass}`}`}
+                        >
+                          {colorOpt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-px w-full bg-black/5 dark:bg-white/5" />
                   <div className="flex flex-col gap-2">
                     <span className={`text-sm font-bold ${textBaseClass}`}>Engine Difficulty</span>
                     <div className="flex p-1 rounded-xl border bg-black/5 dark:bg-white/5 border-transparent">
@@ -814,6 +868,30 @@ export default function ChessGame() {
                 </div>
               </div>
 
+              {/* ── System ── */}
+              <div className="flex flex-col gap-2">
+                <p className={`text-[10px] font-bold uppercase tracking-widest px-1 ${subTextClass}`}>System</p>
+                <div className={`flex flex-col gap-3 p-4 rounded-xl border bg-white/40 dark:bg-black/20 ${isLightUi ? "border-black/5" : "border-white/5"}`}>
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className={`text-sm font-bold ${textBaseClass}`}>Clear Preferences</span>
+                      <span className={`text-[10px] font-medium mt-0.5 ${subTextClass}`}>Reset all saved settings and game data</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to clear all preferences and game data?")) {
+                          localStorage.clear();
+                          window.location.reload();
+                        }
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg shadow-sm transition-colors"
+                    >
+                      CLEAR
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -840,6 +918,7 @@ export default function ChessGame() {
         <GameInfo
           key={gameId}
           turn={game.turn()}
+          playerColor={currentPlayerColor}
           startTime={startTime}
           gameStatus={gameResult ? gameResult.reason : null}
           isPaused={isPaused}

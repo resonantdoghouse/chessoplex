@@ -65,6 +65,7 @@ export default function GameInfo({
             src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(opponentName)}`}
             alt="Opponent avatar"
             fill
+            sizes="36px"
             className="object-cover"
           />
         </div>
