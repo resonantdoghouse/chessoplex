@@ -5,6 +5,7 @@ import Image from "next/image";
 
 type GameInfoProps = {
   turn: "w" | "b";
+  playerColor: "w" | "b";
   startTime: number;
   gameStatus: string | null;
   isPaused: boolean;
@@ -15,6 +16,7 @@ type GameInfoProps = {
 
 export default function GameInfo({
   turn,
+  playerColor,
   startTime,
   gameStatus,
   isPaused,
