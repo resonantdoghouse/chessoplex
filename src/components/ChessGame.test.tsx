@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import ChessGame from "./ChessGame";
+import { ThemeProvider } from "../context/ThemeContext";
 
 // Mock react-chessboard since it uses canvas/DOM interaction that might be tricky in pure jsdom without setup
 // However, we want to test interaction logic -> onSquareClick.
@@ -21,6 +22,14 @@ vi.mock("react-chessboard", () => ({
     );
   },
 }));
+
+// Mock Worker
+class MockWorker {
+  postMessage() {}
+  onmessage() {}
+  terminate() {}
+}
+(global as any).Worker = MockWorker;
 
 // Mock window.matchMedia
 Object.defineProperty(window, "matchMedia", {
@@ -60,14 +69,22 @@ Object.defineProperty(window, "localStorage", {
 
 describe("ChessGame", () => {
   it("renders standard starting position", async () => {
-    render(<ChessGame />);
+    render(
+      <ThemeProvider>
+        <ChessGame />
+      </ThemeProvider>
+    );
     // Wait for mounted state to update
     expect(await screen.findByText("Chessoplex")).toBeDefined();
     expect(screen.getByTestId("mock-chessboard")).toBeDefined();
   });
 
   it("allows white to move pieces", async () => {
-    render(<ChessGame />);
+    render(
+      <ThemeProvider>
+        <ChessGame />
+      </ThemeProvider>
+    );
 
     // Wait for mounted state
     await screen.findByText("Chessoplex");
@@ -112,7 +129,11 @@ describe("ChessGame", () => {
       return null;
     });
 
-    render(<ChessGame />);
+    render(
+      <ThemeProvider>
+        <ChessGame />
+      </ThemeProvider>
+    );
 
     // Wait for mount
     await screen.findByText("Chessoplex");
