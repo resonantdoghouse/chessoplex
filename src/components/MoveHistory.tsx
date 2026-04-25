@@ -1,21 +1,33 @@
 "use client";
 
-import { useEffect } from "react";
 import { Move } from "chess.js";
+import { getOpeningName } from "@/lib/openings";
 
 type MoveHistoryProps = {
   history: Move[];
   annotations?: string[];
 };
 
+function getSpecialLabel(move: Move): string | null {
+  if (move.san === "O-O") return "Kingside Castle";
+  if (move.san === "O-O-O") return "Queenside Castle";
+  if (move.flags.includes("e")) return "En Passant";
+  const promMatch = move.san.match(/=([QRBN])/);
+  if (promMatch) {
+    const labels: Record<string, string> = { Q: "Queen", R: "Rook", B: "Bishop", N: "Knight" };
+    return `Promotes to ${labels[promMatch[1]] ?? promMatch[1]}`;
+  }
+  return null;
+}
+
 export default function MoveHistory({
   history,
   annotations = [],
 }: MoveHistoryProps) {
-  // Group moves into pairs (White, Black)
-  const movePairs = [];
+  // Group moves into pairs (White, Black) in forward order
+  const forwardPairs = [];
   for (let i = 0; i < history.length; i += 2) {
-    movePairs.push({
+    forwardPairs.push({
       white: history[i],
       whiteAnnotation: annotations[i] || "",
       black: history[i + 1] || null,
@@ -24,8 +36,22 @@ export default function MoveHistory({
     });
   }
 
+  // Compute opening name at end of each pair (after both moves, or just white's if last)
+  const openingNames = forwardPairs.map((_, idx) => {
+    const pairEndIdx = Math.min((idx + 1) * 2, history.length);
+    return getOpeningName(history.slice(0, pairEndIdx).map((m) => m.san));
+  });
+
+  // Only show label when opening name changes from the previous pair
+  const openingLabelsForward: (string | null)[] = forwardPairs.map((_, idx) => {
+    const current = openingNames[idx];
+    const prev = idx > 0 ? openingNames[idx - 1] : null;
+    return current !== prev ? current : null;
+  });
+
   // Reverse to show latest move at the top
-  movePairs.reverse();
+  const movePairs = [...forwardPairs].reverse();
+  const openingLabels = [...openingLabelsForward].reverse();
 
   if (history.length === 0) {
     return (
@@ -61,38 +87,57 @@ export default function MoveHistory({
           <span>Black</span>
         </div>
         <div className="divide-y divide-black/5 dark:divide-white/5">
-          {movePairs.map((pair) => (
-            <div
-              key={pair.number}
-              className="grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-sm font-mono px-4 py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
-            >
-              <span className="text-zinc-500 dark:text-zinc-600 shrink-0">
-                {pair.number}.
-              </span>
-              <span className="text-zinc-800 dark:text-zinc-200 font-medium truncate flex items-center overflow-hidden whitespace-nowrap">
-                <span className="truncate">{pair.white.san}</span>
-                {pair.whiteAnnotation && (
-                  <span className={getAnnotationClass(pair.whiteAnnotation)}>
-                    {pair.whiteAnnotation}
+          {movePairs.map((pair, idx) => (
+            <div key={pair.number}>
+              {openingLabels[idx] && (
+                <div className="grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 px-4 pt-2 pb-1">
+                  <span />
+                  <span className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-violet-500 dark:text-violet-400 truncate">
+                    {openingLabels[idx]}
                   </span>
-                )}
-              </span>
-              <span className="text-zinc-600 dark:text-zinc-400 font-medium truncate flex items-center overflow-hidden whitespace-nowrap">
-                {pair.black ? (
-                  <>
-                    <span className="truncate">{pair.black.san}</span>
-                    {pair.blackAnnotation && (
-                      <span
-                        className={getAnnotationClass(pair.blackAnnotation)}
-                      >
-                        {pair.blackAnnotation}
+                </div>
+              )}
+              <div className="grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-sm font-mono px-4 py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150">
+                <span className="text-zinc-500 dark:text-zinc-600 shrink-0">
+                  {pair.number}.
+                </span>
+                <span className="text-zinc-800 dark:text-zinc-200 font-medium flex flex-col gap-0.5 overflow-hidden">
+                  <span className="flex items-center overflow-hidden whitespace-nowrap">
+                    <span className="truncate">{pair.white.san}</span>
+                    {pair.whiteAnnotation && (
+                      <span className={getAnnotationClass(pair.whiteAnnotation)}>
+                        {pair.whiteAnnotation}
                       </span>
                     )}
-                  </>
-                ) : (
-                  ""
-                )}
-              </span>
+                  </span>
+                  {getSpecialLabel(pair.white) && (
+                    <span className="text-[10px] font-sans font-semibold text-amber-600 dark:text-amber-400 truncate leading-none">
+                      {getSpecialLabel(pair.white)}
+                    </span>
+                  )}
+                </span>
+                <span className="text-zinc-600 dark:text-zinc-400 font-medium flex flex-col gap-0.5 overflow-hidden">
+                  {pair.black ? (
+                    <>
+                      <span className="flex items-center overflow-hidden whitespace-nowrap">
+                        <span className="truncate">{pair.black.san}</span>
+                        {pair.blackAnnotation && (
+                          <span className={getAnnotationClass(pair.blackAnnotation)}>
+                            {pair.blackAnnotation}
+                          </span>
+                        )}
+                      </span>
+                      {getSpecialLabel(pair.black) && (
+                        <span className="text-[10px] font-sans font-semibold text-amber-600 dark:text-amber-400 truncate leading-none">
+                          {getSpecialLabel(pair.black)}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    ""
+                  )}
+                </span>
+              </div>
             </div>
           ))}
         </div>
