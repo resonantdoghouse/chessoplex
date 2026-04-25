@@ -13,7 +13,7 @@ import { OPPONENT_NAMES, BOARD_THEMES, BoardTheme } from "@/lib/constants";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "../hooks/useTheme";
 import { useEngine } from "../hooks/useEngine";
-import { useAudio, SONG_META } from "../hooks/useAudio";
+import { useAudio } from "../hooks/useAudio";
 
 export default function ChessGame() {
   const [game, setGame] = useState(new Chess());
@@ -67,6 +67,7 @@ export default function ChessGame() {
   const [tutorSquares, setTutorSquares] = useState<
     Record<string, React.CSSProperties>
   >({});
+  const [showSettings, setShowSettings] = useState(false);
   // Threat Detection Effect
   useEffect(() => {
     if (!showThreats) {
@@ -510,31 +511,6 @@ export default function ChessGame() {
 
       {/* ── Board column ── */}
       <div className="chess-board-column">
-
-        {/* Mobile-only compact audio strip — sits above the board, hidden on desktop
-            where the full AudioControls panel lives at the top of the sidebar */}
-        <div className={`md:hidden flex items-center gap-1.5 p-1.5 rounded-xl border mb-2 shadow-lg shrink-0 ${panelBaseClass}`}>
-          {/* SFX toggle */}
-          <button
-            onClick={() => setSfxEnabled(!sfxEnabled)}
-            title={sfxEnabled ? "Mute SFX" : "Enable SFX"}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${sfxEnabled ? (isLightUi ? "bg-zinc-900 text-white" : "bg-zinc-800 text-white dark:bg-white dark:text-zinc-900") : subTextClass}`}
-          >
-            <span>{sfxEnabled ? "🔊" : "🔇"}</span>
-            <span>SFX</span>
-          </button>
-
-          {/* Music toggle + now-playing label */}
-          <button
-            onClick={toggleBgMusic}
-            title={bgPlaying ? "Stop music" : "Play music"}
-            className={`flex flex-1 items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${bgPlaying ? (isLightUi ? "bg-zinc-900 text-white" : "bg-zinc-800 text-white dark:bg-white dark:text-zinc-900") : subTextClass}`}
-          >
-            <span>{bgPlaying ? "⏸" : "🎵"}</span>
-            <span>{bgPlaying ? `${SONG_META[currentSong].label} · ${currentInstrument === "harpsichord" ? "Harp" : currentInstrument.charAt(0).toUpperCase() + currentInstrument.slice(1)}` : "Music"}</span>
-          </button>
-        </div>
-
         <div className="chess-board-group">
           {/* Eval bar — shown md+ via CSS */}
           <div className="chess-eval-bar">
@@ -576,36 +552,152 @@ export default function ChessGame() {
 
       {/* ── Sidebar / controls column ── */}
       <div className="chess-sidebar">
-        {/* Title */}
+
+        {/* ── Header: title + settings toggle + dark mode ── */}
         <div className="flex items-center justify-between px-1 shrink-0">
           <div>
-            <h1
-              className={`text-2xl md:text-3xl font-black uppercase tracking-widest drop-shadow-2xl transition-colors duration-300 ${isLightUi ? "text-zinc-900" : "text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400"}`}
-            >
+            <h1 className={`text-xl md:text-2xl font-black uppercase tracking-widest drop-shadow-2xl transition-colors duration-300 ${isLightUi ? "text-zinc-900" : "text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400"}`}>
               Chessoplex
             </h1>
-            <p className={`text-[10px] font-bold tracking-wider ${subTextClass}`}>
-              PREMIUM CHESS
-            </p>
+            <p className={`text-[10px] font-bold tracking-wider ${subTextClass}`}>PREMIUM CHESS</p>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            {/* Settings toggle button */}
+            <button
+              onClick={() => setShowSettings(s => !s)}
+              aria-label={showSettings ? "Close settings" : "Open settings"}
+              className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold border transition-all duration-200 ${
+                showSettings
+                  ? isLightUi
+                    ? "bg-zinc-900 text-white border-zinc-700 shadow-md"
+                    : "bg-white text-zinc-900 border-white/20 shadow-md"
+                  : isLightUi
+                    ? "bg-white/70 text-zinc-600 border-black/10 hover:bg-white hover:text-zinc-900"
+                    : "bg-white/10 text-zinc-300 border-white/10 hover:bg-white/20"
+              }`}
+            >
+              {/* Gear / close icon */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                {showSettings ? (
+                  <>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </>
+                ) : (
+                  <>
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+                  </>
+                )}
+              </svg>
+              <span className="tracking-wide">{showSettings ? "CLOSE" : "SETTINGS"}</span>
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
 
-        {/* Audio controls — full panel at top of sidebar (desktop); hidden on mobile
-            where the compact strip above the board handles quick access */}
-        <AudioControls
-          sfxEnabled={sfxEnabled}
-          onToggleSfx={() => setSfxEnabled(!sfxEnabled)}
-          bgPlaying={bgPlaying}
-          onToggleBgMusic={toggleBgMusic}
-          currentSong={currentSong}
-          onSetSong={setSong}
-          currentInstrument={currentInstrument}
-          onSetInstrument={setInstrument}
-          isLightUi={isLightUi}
-        />
+        {/* ── Settings panel (collapsible) ── */}
+        <div className={`grid transition-all duration-300 ease-in-out shrink-0 ${showSettings ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+          <div className="overflow-hidden">
+            <div className={`flex flex-col gap-4 rounded-xl border p-3 ${panelBaseClass}`}>
 
-        {/* Game info */}
+              {/* Audio */}
+              <div className="flex flex-col gap-1.5">
+                <p className={`text-[10px] font-bold uppercase tracking-widest px-0.5 ${subTextClass}`}>Audio</p>
+                <AudioControls
+                  sfxEnabled={sfxEnabled}
+                  onToggleSfx={() => setSfxEnabled(!sfxEnabled)}
+                  bgPlaying={bgPlaying}
+                  onToggleBgMusic={toggleBgMusic}
+                  currentSong={currentSong}
+                  onSetSong={setSong}
+                  currentInstrument={currentInstrument}
+                  onSetInstrument={setInstrument}
+                  isLightUi={isLightUi}
+                />
+              </div>
+
+              {/* Difficulty */}
+              <div className="flex flex-col gap-1.5">
+                <p className={`text-[10px] font-bold uppercase tracking-widest px-0.5 ${subTextClass}`}>Difficulty</p>
+                <div className={`flex p-1 rounded-xl border ${panelBaseClass}`}>
+                  {(["Easy", "Medium", "Hard"] as const).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => setDifficulty(level)}
+                      aria-label={`Set difficulty to ${level}`}
+                      className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${difficulty === level ? (isLightUi ? "bg-zinc-900 text-white shadow-md" : "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900") : `hover:bg-black/5 ${subTextClass} ${!isLightUi ? "dark:hover:bg-white/5" : ""}`}`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Board theme */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center px-0.5">
+                  <p className={`text-[10px] font-bold uppercase tracking-widest ${subTextClass}`}>Board Theme</p>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${textBaseClass}`}>
+                    {BOARD_THEMES[boardTheme].name}
+                  </span>
+                </div>
+                <div className={`grid grid-cols-8 gap-2 p-2.5 rounded-xl border ${panelBaseClass}`}>
+                  {Object.entries(BOARD_THEMES).map(([key, t]) => (
+                    <button
+                      key={key}
+                      onClick={() => setBoardTheme(key as BoardTheme)}
+                      title={t.name}
+                      aria-label={`Select ${t.name} theme`}
+                      className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${boardTheme === key ? `scale-110 shadow-md ring-2 ${isLightUi ? "border-zinc-900 ring-zinc-500/30" : "border-zinc-900 dark:border-white ring-zinc-500/30"}` : `border-transparent hover:border-black/20 ${!isLightUi ? "dark:hover:border-white/20" : ""}`}`}
+                      style={{ background: `linear-gradient(135deg, ${t.light} 50%, ${t.dark} 50%)` }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Analysis tools */}
+              <div className="flex flex-col gap-1.5">
+                <p className={`text-[10px] font-bold uppercase tracking-widest px-0.5 ${subTextClass}`}>Analysis Tools</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setShowThreats(!showThreats)}
+                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all border ${showThreats ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/5 hover:bg-white/10 text-zinc-400 border-white/5"}`}`}
+                  >
+                    {showThreats ? "🛡️ Threats: ON" : "🛡️ Threats: OFF"}
+                  </button>
+                  <button
+                    onClick={() => setShowTutor(!showTutor)}
+                    className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all border ${showTutor ? "bg-emerald-500/90 hover:bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/5 hover:bg-white/10 text-zinc-400 border-white/5"}`}`}
+                  >
+                    {showTutor ? "🎓 Tutor: ON" : "🎓 Tutor: OFF"}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        {/* ── Pause / New game ── */}
+        <div className="grid grid-cols-2 gap-3 shrink-0">
+          <button
+            onClick={togglePause}
+            aria-label={isPaused ? "Resume game" : "Pause game"}
+            className={`py-3 px-4 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${isPaused ? "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white border-yellow-400/50 shadow-yellow-900/40" : isLightUi ? "bg-white hover:bg-zinc-50 text-zinc-900 border-black/10" : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"}`}
+          >
+            {isPaused ? "RESUME" : "PAUSE"}
+          </button>
+          <button
+            onClick={resetGame}
+            aria-label="Start new game"
+            className="py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border border-white/10"
+          >
+            NEW GAME
+          </button>
+        </div>
+
+        {/* ── Game info: opponent, timer, player ── */}
         <GameInfo
           key={gameId}
           turn={game.turn()}
@@ -617,82 +709,8 @@ export default function ChessGame() {
           isLightUi={isLightUi}
         />
 
-        {/* Pause / New game */}
-        <div className="grid grid-cols-2 gap-3 shrink-0">
-          <button
-            onClick={togglePause}
-            aria-label={isPaused ? "Resume Game" : "Pause Game"}
-            className={`py-3 px-6 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border ${isPaused ? "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white border-yellow-400/50 shadow-yellow-900/40" : `${isLightUi ? "bg-white hover:bg-zinc-50 text-zinc-900 border-black/10" : "bg-white hover:bg-zinc-100 text-zinc-800 border-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 dark:border-white/10"}`}`}
-          >
-            {isPaused ? "RESUME" : "PAUSE"}
-          </button>
-          <button
-            onClick={resetGame}
-            aria-label="Start New Game"
-            className="w-full py-3 px-6 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-95 border border-white/10"
-          >
-            NEW GAME
-          </button>
-        </div>
-
-        {/* Difficulty */}
-        <div className={`flex p-1 rounded-xl border shrink-0 shadow-lg ${panelBaseClass}`}>
-          {(["Easy", "Medium", "Hard"] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => setDifficulty(level)}
-              aria-label={`Select ${level} Difficulty`}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${difficulty === level ? (isLightUi ? "bg-zinc-900 text-white shadow-md" : "bg-zinc-800 text-white shadow-md dark:bg-white dark:text-zinc-900") : `hover:bg-black/5 ${subTextClass} ${!isLightUi ? "dark:hover:bg-white/5" : ""}`}`}
-            >
-              {level}
-            </button>
-          ))}
-        </div>
-
-        {/* Board theme */}
-        <div className="shrink-0">
-          <div className="flex justify-between items-end px-1 pb-1">
-            <span className={`text-xs font-bold uppercase tracking-wider ${subTextClass}`}>
-              Theme
-            </span>
-            <span className={`text-xs font-black uppercase tracking-widest ${textBaseClass}`}>
-              {BOARD_THEMES[boardTheme].name}
-            </span>
-          </div>
-          <div className={`grid grid-cols-4 gap-2 p-3 rounded-xl border shadow-lg ${panelBaseClass}`}>
-            {Object.entries(BOARD_THEMES).map(([key, theme]) => (
-              <button
-                key={key}
-                onClick={() => setBoardTheme(key as BoardTheme)}
-                title={theme.name}
-                className={`aspect-square rounded-full border-2 transition-all hover:scale-110 active:scale-95 shadow-sm ${boardTheme === key ? `scale-110 shadow-md ring-2 ${isLightUi ? "border-zinc-900 ring-zinc-500/30" : "border-zinc-900 dark:border-white ring-zinc-500/30"}` : `border-transparent hover:border-black/20 ${!isLightUi ? "dark:hover:border-white/20" : ""}`}`}
-                style={{ background: `linear-gradient(135deg, ${theme.light} 50%, ${theme.dark} 50%)` }}
-                aria-label={`Select ${theme.name} Theme`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Show threats / Tutor */}
-        <div className="grid grid-cols-2 gap-3 shrink-0">
-          <button
-            onClick={() => setShowThreats(!showThreats)}
-            className={`py-3 px-4 rounded-xl font-bold text-sm transition-all border ${showThreats ? "bg-red-500/90 hover:bg-red-600 text-white border-red-400 shadow-md shadow-red-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"}`}`}
-          >
-            {showThreats ? "🛡️ ON" : "🛡️ THREATS"}
-          </button>
-          <button
-            onClick={() => setShowTutor(!showTutor)}
-            className={`py-3 px-4 rounded-xl font-bold text-sm transition-all border ${showTutor ? "bg-emerald-500/90 hover:bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-900/20" : `${isLightUi ? "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5" : "bg-white/50 hover:bg-white/80 text-zinc-600 border-black/5 dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-400 dark:border-white/5"}`}`}
-          >
-            {showTutor ? "🎓 ON" : "🎓 TUTOR"}
-          </button>
-        </div>
-
-        {/* Move history */}
-        <div
-          className={`min-h-[150px] md:flex-1 rounded-2xl border shadow-2xl ring-1 ring-black/5 overflow-hidden ${isLightUi ? "bg-white/80 border-black/10" : "bg-white/70 dark:bg-zinc-900/70 border-white/20 dark:border-white/10 backdrop-blur-xl"}`}
-        >
+        {/* ── Move history (dominant — fills remaining space) ── */}
+        <div className={`min-h-[200px] md:flex-1 rounded-2xl border shadow-2xl ring-1 ring-black/5 overflow-hidden ${isLightUi ? "bg-white/80 border-black/10" : "bg-white/70 dark:bg-zinc-900/70 border-white/20 dark:border-white/10 backdrop-blur-xl"}`}>
           <MoveHistory
             history={game.history({ verbose: true })}
             annotations={moveAnnotations}

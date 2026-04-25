@@ -28,154 +28,114 @@ export default function GameInfo({
     if (gameStatus) return;
 
     const interval = setInterval(() => {
-      // If paused, we don't update the visual timer, it stays frozen
       if (isPaused) return;
-
-      const now = Date.now();
-      // Calculate effective duration: (Current Time - Start Time) - (Total Paused Time)
-      // Note: When we are in the middle of a pause (isPaused=true), totalPausedTime in the parent
-      // might not be updating every millisecond, it updates on resume.
-      // So visually freezing here is correct.
       const diff = Math.max(
         0,
-        Math.floor((now - startTime - totalPausedTime) / 1000)
+        Math.floor((Date.now() - startTime - totalPausedTime) / 1000)
       );
-
       const minutes = Math.floor(diff / 60);
       const seconds = diff % 60;
       setElapsed(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-    }, 100); // 100ms for smoother updates if we added ms later
+    }, 100);
 
     return () => clearInterval(interval);
   }, [startTime, gameStatus, isPaused, totalPausedTime]);
 
-  // Helper for status badge
-  const statusColor = gameStatus ? "text-yellow-400" : "text-emerald-400";
-  const statusText = gameStatus || "In Progress";
+  const panelBg = isLightUi
+    ? "bg-white/90 border-black/10 shadow-sm"
+    : "bg-white/5 dark:bg-zinc-900/60 border-white/10 shadow-sm";
 
-  // Dynamic Styles based on UI Mode
-  const panelValues = isLightUi
-    ? {
-        container: "bg-white/95 border-black/10 shadow-xl", // Increased opacity for readability
-        text: "text-zinc-950", // Darker text
-        subText: "text-zinc-600", // Darker subtext
-        cardBg: "bg-zinc-100 border-zinc-200",
-        cardBgActive: "bg-white border-zinc-300 shadow-md",
-        timerBg: "bg-black/5 border-black/5",
-        timerText: "text-zinc-900",
-      }
-    : {
-        container: "bg-zinc-900/60 border-white/10 shadow-2xl",
-        text: "text-zinc-100",
-        subText: "text-zinc-400", // Lighter subtext for dark mode
-        cardBg: "bg-zinc-800/30 border-transparent",
-        cardBgActive: "bg-zinc-800/80 shadow-[0_0_15px_rgba(255,255,255,0.1)]",
-        timerBg: "bg-black/20 border-white/5",
-        timerText: "text-white",
-      };
+  const textPrimary = isLightUi ? "text-zinc-900" : "text-white";
+  const textSub     = isLightUi ? "text-zinc-500" : "text-zinc-400";
+
+  const opponentActive = turn === "b" && !gameStatus;
+  const playerActive   = turn === "w" && !gameStatus;
 
   return (
-    <div
-      className={`w-full flex-shrink-0 backdrop-blur-md rounded-2xl p-6 border space-y-6 transition-all duration-300 ${panelValues.container}`}
-    >
-      {/* Opponent Card */}
-      <div
-        className={`relative flex items-center justify-between p-4 rounded-xl transition-all duration-300 border ${
-          turn === "b" && !gameStatus
-            ? isLightUi
-              ? "bg-white border-red-500 shadow-md shadow-red-500/10"
-              : "bg-zinc-800/80 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-            : panelValues.cardBg
-        }`}
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-black/50 overflow-hidden border border-red-800/30 shadow-inner p-1 relative">
-            <Image
-              src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
-                opponentName
-              )}`}
-              alt="Opponent Avatar"
-              fill
-              className="object-cover"
-            />
-          </div>
-          <div>
-            <p className={`font-bold text-lg ${panelValues.text}`}>
-              {opponentName}
-            </p>
-            <p className={`text-xs font-mono ${panelValues.subText}`}>
-              Rating: 1500
-            </p>
-          </div>
-        </div>
-        {turn === "b" && !gameStatus && (
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-            </span>
-          </div>
-        )}
-      </div>
+    <div className="flex flex-col gap-2 shrink-0">
 
-      {/* Timer & Status Display */}
-      <div
-        className={`flex items-center justify-between px-4 py-2 rounded-lg border ${panelValues.timerBg}`}
-      >
-        <div className="space-y-1">
-          <p className="text-[10px] uppercase text-zinc-500 tracking-[0.2em] font-bold">
-            Time Elapsed
-          </p>
-          <p
-            className={`text-4xl font-mono font-black tracking-tight ${
-              isPaused ? "text-yellow-500/80" : panelValues.timerText
-            }`}
-          >
-            {elapsed}
-          </p>
+      {/* Opponent strip */}
+      <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-300 ${
+        opponentActive
+          ? "border-red-500/50 bg-red-500/5 shadow-md shadow-red-900/10"
+          : panelBg
+      }`}>
+        <div className="relative w-9 h-9 shrink-0 rounded-full overflow-hidden bg-black/40 border border-zinc-700/50 p-0.5">
+          <Image
+            src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(opponentName)}`}
+            alt="Opponent avatar"
+            fill
+            className="object-cover"
+          />
         </div>
-        <div className="text-right space-y-1">
-          <p className="text-[10px] uppercase text-zinc-500 tracking-[0.2em] font-bold">
-            Status
+        <div className="flex-1 min-w-0">
+          <p className={`font-bold text-sm leading-tight truncate ${textPrimary}`}>
+            {opponentName}
           </p>
-          <span
-            className={`text-sm font-bold uppercase tracking-wider ${statusColor}`}
-          >
-            {statusText}
+          <p className={`text-[10px] font-mono leading-tight ${textSub}`}>Black</p>
+        </div>
+        {opponentActive && (
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
           </span>
+        )}
+      </div>
+
+      {/* Timer */}
+      <div className={`px-4 py-3 rounded-xl border ${panelBg}`}>
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <p className={`text-[10px] uppercase tracking-[0.2em] font-bold mb-0.5 ${textSub}`}>
+              Time Elapsed
+            </p>
+            <p className={`text-5xl font-mono font-black tracking-tight leading-none tabular-nums ${
+              isPaused ? "text-yellow-500/80" : isLightUi ? "text-zinc-900" : "text-white"
+            }`}>
+              {elapsed}
+            </p>
+          </div>
+          <div className="text-right pb-0.5">
+            {gameStatus ? (
+              <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                {gameStatus}
+              </span>
+            ) : (
+              <span className={`text-xs font-bold uppercase tracking-wider ${
+                isPaused
+                  ? "text-yellow-500/80"
+                  : playerActive
+                    ? "text-emerald-400"
+                    : "text-red-400"
+              }`}>
+                {isPaused ? "Paused" : playerActive ? "Your Turn" : "Thinking…"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Player Card */}
-      <div
-        className={`relative flex items-center justify-between p-4 rounded-xl transition-all duration-300 border ${
-          turn === "w" && !gameStatus
-            ? isLightUi
-              ? "bg-white border-blue-500 shadow-md shadow-blue-500/10"
-              : "bg-zinc-800/80 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]"
-            : panelValues.cardBg
-        }`}
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-950 to-black flex items-center justify-center border border-blue-800/30 shadow-inner">
-            <span className="text-blue-200/50 font-black text-lg">YOU</span>
-          </div>
-          <div>
-            <p className={`font-bold text-lg ${panelValues.text}`}>You</p>
-            <p className={`text-xs font-mono ${panelValues.subText}`}>
-              White Pieces
-            </p>
-          </div>
+      {/* Player strip */}
+      <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-300 ${
+        playerActive
+          ? "border-blue-500/50 bg-blue-500/5 shadow-md shadow-blue-900/10"
+          : `${panelBg} opacity-60`
+      }`}>
+        <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-blue-900 to-black flex items-center justify-center border border-blue-800/30">
+          <span className="text-blue-200/60 font-black text-[9px]">YOU</span>
         </div>
-        {turn === "w" && !gameStatus && (
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-            </span>
-          </div>
+        <div className="flex-1 min-w-0">
+          <p className={`font-bold text-sm leading-tight ${textPrimary}`}>You</p>
+          <p className={`text-[10px] font-mono leading-tight ${textSub}`}>White</p>
+        </div>
+        {playerActive && (
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+          </span>
         )}
       </div>
+
     </div>
   );
 }

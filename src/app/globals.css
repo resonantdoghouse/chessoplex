@@ -117,4 +117,19 @@ body {
   }
 }
 
+/* Large desktop */
+@media (min-width: 1280px) {
+  .chess-game-layout {
+    grid-template-columns: 1fr 360px;
+    gap: 2rem;
+  }
+}
+
+/* Ultrawide: sidebar grows a bit more, layout stays centered via max-w on wrapper */
+@media (min-width: 1600px) {
+  .chess-game-layout {
+    grid-template-columns: 1fr 400px;
+    gap: 2.5rem;
+  }
+}
 
