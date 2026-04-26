@@ -12,7 +12,36 @@ type GameInfoProps = {
   totalPausedTime: number;
   opponentName: string;
   isLightUi?: boolean;
+  currentEval?: { evaluation?: number; mate?: number };
 };
+
+function computeHealth(evalPawns: number | undefined, mate: number | undefined, color: "w" | "b"): number {
+  if (mate !== undefined) {
+    const isDelivering = color === "w" ? mate > 0 : mate < 0;
+    if (isDelivering) return 100;
+    return Math.max(0, Math.min(20, Math.abs(mate) * 5));
+  }
+  if (evalPawns !== undefined) {
+    const advantage = color === "w" ? evalPawns : -evalPawns;
+    if (advantage >= 0) return 100;
+    return Math.max(5, Math.round(100 + advantage * 10));
+  }
+  return 100;
+}
+
+function HealthBar({ health, active }: { health: number; active: boolean }) {
+  const color =
+    health > 60 ? "#22c55e" : health > 30 ? "#eab308" : "#ef4444";
+  const critical = health <= 20;
+  return (
+    <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden mt-1.5">
+      <div
+        className={`h-full rounded-full transition-all duration-700 ease-out ${critical && active ? "animate-pulse" : ""}`}
+        style={{ width: `${health}%`, background: color, boxShadow: critical ? `0 0 6px ${color}` : undefined }}
+      />
+    </div>
+  );
+}
 
 export default function GameInfo({
   turn,
@@ -23,6 +52,7 @@ export default function GameInfo({
   totalPausedTime,
   opponentName,
   isLightUi = false,
+  currentEval = {},
 }: GameInfoProps) {
   const [elapsed, setElapsed] = useState("0:00");
 
@@ -50,8 +80,12 @@ export default function GameInfo({
   const textPrimary = isLightUi ? "text-zinc-900" : "text-white";
   const textSub     = isLightUi ? "text-zinc-500" : "text-zinc-400";
 
-  const opponentActive = turn === "b" && !gameStatus;
-  const playerActive   = turn === "w" && !gameStatus;
+  const opponentColor  = playerColor === "w" ? "b" : "w";
+  const opponentActive = turn === opponentColor && !gameStatus;
+  const playerActive   = turn === playerColor && !gameStatus;
+
+  const playerHealth   = computeHealth(currentEval.evaluation, currentEval.mate, playerColor);
+  const opponentHealth = computeHealth(currentEval.evaluation, currentEval.mate, opponentColor);
 
   return (
     <div className="flex flex-col gap-2 shrink-0">
@@ -75,7 +109,8 @@ export default function GameInfo({
           <p className={`font-bold text-sm leading-tight truncate ${textPrimary}`}>
             {opponentName}
           </p>
-          <p className={`text-[10px] font-mono leading-tight ${textSub}`}>Black</p>
+          <p className={`text-[10px] font-mono leading-tight ${textSub}`}>{opponentColor === "w" ? "White" : "Black"}</p>
+          <HealthBar health={opponentHealth} active={opponentActive} />
         </div>
         {opponentActive && (
           <span className="relative flex h-2.5 w-2.5 shrink-0">
@@ -129,7 +164,8 @@ export default function GameInfo({
         </div>
         <div className="flex-1 min-w-0">
           <p className={`font-bold text-sm leading-tight ${textPrimary}`}>You</p>
-          <p className={`text-[10px] font-mono leading-tight ${textSub}`}>White</p>
+          <p className={`text-[10px] font-mono leading-tight ${textSub}`}>{playerColor === "w" ? "White" : "Black"}</p>
+          <HealthBar health={playerHealth} active={playerActive} />
         </div>
         {playerActive && (
           <span className="relative flex h-2.5 w-2.5 shrink-0">

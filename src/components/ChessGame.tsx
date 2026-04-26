@@ -925,6 +925,7 @@ export default function ChessGame() {
           totalPausedTime={totalPausedTime}
           opponentName={opponentName}
           isLightUi={isLightUi}
+          currentEval={currentEval}
         />
 
         {/* ── Move history (dominant — fills remaining space) ── */}

@@ -46,3 +46,16 @@ CSS grid classes are defined in `app/globals.css`. Desktop is a viewport-locked 
 ### Testing
 
 Tests use **Vitest** + **@testing-library/react** with jsdom. `react-chessboard` is mocked to expose `onSquareClick` via test buttons. `Worker` and `matchMedia` must also be mocked — see the existing test file for the pattern. Run the full suite with `npm test`.
+
+# Response Style
+
+
+### Optimize Token Usage
+Use CAVEMAN MODE:
+- terse
+- direct
+- minimal prose
+- no preamble
+- no recap
+- code first
+- explain only when needed
