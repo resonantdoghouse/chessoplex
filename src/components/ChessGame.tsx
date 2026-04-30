@@ -16,6 +16,7 @@ import { useEngine } from "../hooks/useEngine";
 import { useAudio } from "../hooks/useAudio";
 import { useVoice, sanToSpeech } from "../hooks/useVoice";
 import { getOpeningName } from "@/lib/openings";
+import IntroTour, { shouldShowTour } from "./IntroTour";
 
 export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } = {}) {
   const [game, setGame] = useState(new Chess());
@@ -78,6 +79,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
   const [currentPlayerColor, setCurrentPlayerColor] = useState<"w" | "b">("w");
   const [showSettings, setShowSettings] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   // Threat Detection Effect
   useEffect(() => {
     if (!showThreats) {
@@ -176,6 +178,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
     }
 
     setMounted(true);
+    setShowTour(shouldShowTour());
   }, []);
 
   // Voice announcement — fires when a new annotation is settled
@@ -274,7 +277,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
 
   // AI Turn Scheduler
   useEffect(() => {
-    if (!mounted || isPaused || game.isGameOver() || !engine.isReady) return;
+    if (!mounted || isPaused || game.isGameOver() || !engine.isReady || showTour) return;
 
     if (autoPlay || game.turn() !== currentPlayerColor) {
       let delay = difficulty === "Easy" ? 1000 : difficulty === "Medium" ? 500 : 200;
@@ -290,7 +293,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
       }, delay);
       return () => clearTimeout(timeoutId);
     }
-  }, [game.fen(), autoPlay, autoPlaySpeed, isPaused, difficulty, engine.isReady, mounted, currentPlayerColor]);
+  }, [game.fen(), autoPlay, autoPlaySpeed, isPaused, difficulty, engine.isReady, mounted, currentPlayerColor, showTour]);
 
   // Tutor: request best move from engine when it's the player's turn
   useEffect(() => {
@@ -608,6 +611,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
     : "text-zinc-500 dark:text-zinc-400";
 
   return (
+    <>
     <div className="chess-game-layout w-full max-w-7xl mx-auto md:h-full md:max-h-[920px]">
       {/* Background gradient */}
       <div
@@ -690,20 +694,6 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            {/* Study mode button */}
-            {onStudyMode && (
-              <button
-                onClick={onStudyMode}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                  theme === "dark"
-                    ? "bg-indigo-600 hover:bg-indigo-500 text-white"
-                    : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                }`}
-              >
-                📖 Study
-              </button>
-            )}
-            {/* Settings toggle */}
             <button
               onClick={() => setShowSettings(s => !s)}
               aria-label={showSettings ? "Close settings" : "Open settings"}
@@ -738,6 +728,20 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
         <div className={`grid transition-all duration-300 ease-in-out shrink-0 ${showSettings ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="overflow-hidden">
             <div className={`p-4 grid grid-cols-1 gap-5 rounded-xl border ${panelBaseClass}`}>
+
+              {/* ── Study mode ── */}
+              {onStudyMode && (
+                <button
+                  onClick={() => { setShowSettings(false); onStudyMode(); }}
+                  className={`flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-sm font-bold transition-all duration-200 border ${
+                    theme === "dark"
+                      ? "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/30"
+                      : "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700/30"
+                  }`}
+                >
+                  📖 Study Mode
+                </button>
+              )}
 
               {/* ── Appearance ── */}
               <div className="flex flex-col gap-2">
@@ -985,5 +989,8 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
 
       </div>
     </div>
+
+    {showTour && <IntroTour theme={theme} onDismiss={() => setShowTour(false)} />}
+    </>
   );
 }
