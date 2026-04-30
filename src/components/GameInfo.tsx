@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useTheme } from "../hooks/useTheme";
 
 type GameInfoProps = {
   turn: "w" | "b";
@@ -56,6 +57,7 @@ export default function GameInfo({
   isLightUi = false,
   currentEval = {},
 }: GameInfoProps) {
+  const { theme } = useTheme();
   const [elapsed, setElapsed] = useState("0:00");
 
   useEffect(() => {
@@ -130,23 +132,23 @@ export default function GameInfo({
               Time Elapsed
             </p>
             <p className={`text-5xl font-mono font-black tracking-tight leading-none tabular-nums ${
-              isPaused ? "text-yellow-500/80" : isLightUi ? "text-zinc-900" : "text-white"
+              isPaused ? (theme === "dark" ? "text-yellow-500" : "text-amber-700") : (isLightUi || theme === "light") ? "text-zinc-900" : "text-white"
             }`}>
               {elapsed}
             </p>
           </div>
           <div className="text-right pb-0.5">
             {gameStatus ? (
-              <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-yellow-400">
                 {gameStatus}
               </span>
             ) : (
               <span className={`text-xs font-bold uppercase tracking-wider ${
                 isPaused
-                  ? "text-yellow-500/80"
+                  ? "text-amber-700 dark:text-yellow-500"
                   : playerActive
-                    ? "text-emerald-400"
-                    : "text-red-400"
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-red-700 dark:text-red-400"
               }`}>
                 {isPaused ? "Paused" : playerActive ? "Your Turn" : "Thinking…"}
               </span>

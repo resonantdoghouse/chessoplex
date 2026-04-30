@@ -82,7 +82,7 @@ export default function MoveHistory({
         </h3>
       </div>
       <div className="flex-grow overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-zinc-400 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent h-full">
-        <div className="sticky top-0 z-10 grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-xs font-mono px-4 py-2 text-zinc-600 dark:text-zinc-500 font-bold bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-b border-black/5 dark:border-white/5">
+        <div className="sticky top-0 z-10 grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-xs font-mono px-4 py-2 text-zinc-600 dark:text-zinc-300 font-bold bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-b border-black/5 dark:border-white/5">
           <span>#</span>
           <span>White</span>
           <span>Black</span>
@@ -99,7 +99,7 @@ export default function MoveHistory({
                 </div>
               )}
               <div className="grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-sm font-mono px-4 py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150">
-                <span className="text-zinc-500 dark:text-zinc-600 shrink-0">
+                <span className="text-zinc-500 dark:text-zinc-400 shrink-0">
                   {pair.number}.
                 </span>
                 <span className="text-zinc-800 dark:text-zinc-200 font-medium flex flex-col gap-0.5 overflow-hidden">
