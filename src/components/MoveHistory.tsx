@@ -81,7 +81,7 @@ export default function MoveHistory({
           Move History
         </h3>
       </div>
-      <div className="flex-grow overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-zinc-400 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent h-full max-h-[300px]">
+      <div className="flex-grow overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-zinc-400 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent h-full">
         <div className="sticky top-0 z-10 grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-xs font-mono px-4 py-2 text-zinc-600 dark:text-zinc-500 font-bold bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-b border-black/5 dark:border-white/5">
           <span>#</span>
           <span>White</span>

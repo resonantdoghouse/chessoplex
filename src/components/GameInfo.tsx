@@ -17,21 +17,23 @@ type GameInfoProps = {
 
 function computeHealth(evalPawns: number | undefined, mate: number | undefined, color: "w" | "b"): number {
   if (mate !== undefined) {
-    const isDelivering = color === "w" ? mate > 0 : mate < 0;
+    const isDelivering = (color === "w" && mate > 0) || (color === "b" && mate < 0);
     if (isDelivering) return 100;
-    return Math.max(0, Math.min(20, Math.abs(mate) * 5));
+    // Being mated: urgency scales with distance — closer = lower health
+    return Math.max(3, Math.min(18, Math.abs(mate) * 3));
   }
   if (evalPawns !== undefined) {
+    // Logistic win-probability: 50% at equality, ~73% at +1.5, ~88% at +3, ~96% at +6
     const advantage = color === "w" ? evalPawns : -evalPawns;
-    if (advantage >= 0) return 100;
-    return Math.max(5, Math.round(100 + advantage * 10));
+    const winProb = 1 / (1 + Math.exp(-advantage / 3.0));
+    return Math.round(winProb * 100);
   }
-  return 100;
+  return 50; // equal game before first eval
 }
 
 function HealthBar({ health, active }: { health: number; active: boolean }) {
   const color =
-    health > 60 ? "#22c55e" : health > 30 ? "#eab308" : "#ef4444";
+    health >= 55 ? "#22c55e" : health >= 35 ? "#eab308" : "#ef4444";
   const critical = health <= 20;
   return (
     <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden mt-1.5">

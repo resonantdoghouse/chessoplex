@@ -77,6 +77,7 @@ export default function ChessGame() {
   const [playerColorSetting, setPlayerColorSetting] = useState<"Random" | "White" | "Black">("Random");
   const [currentPlayerColor, setCurrentPlayerColor] = useState<"w" | "b">("w");
   const [showSettings, setShowSettings] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   // Threat Detection Effect
   useEffect(() => {
     if (!showThreats) {
@@ -583,6 +584,19 @@ export default function ChessGame() {
   if (!mounted) return null;
 
   const isLightUi = (BOARD_THEMES[boardTheme] as any).uiMode === "light";
+
+  const mobileEvalLabel = (() => {
+    if (currentEval.mate !== undefined) {
+      return currentEval.mate > 0 ? `M${currentEval.mate}` : `M${Math.abs(currentEval.mate)}`;
+    }
+    if (currentEval.evaluation !== undefined) {
+      const v = currentEval.evaluation;
+      if (v === 0) return "0.0";
+      const str = Math.abs(v) >= 10 ? "10.0" : Math.abs(v).toFixed(1);
+      return v > 0 ? `+${str}` : `-${str}`;
+    }
+    return "=";
+  })();
   const panelBaseClass = isLightUi
     ? "bg-white/90 border-black/10 shadow-xl"
     : "bg-white/80 dark:bg-zinc-900/80 border-white/20 dark:border-white/10";
@@ -611,6 +625,8 @@ export default function ChessGame() {
         isOpen={!!gameResult}
         gameStatus={gameResult ? gameResult.reason : null}
         winner={gameResult ? gameResult.winner : null}
+        playerColor={currentPlayerColor}
+        opponentName={opponentName}
         onRestart={resetGame}
         isLightUi={isLightUi}
       />
@@ -655,6 +671,12 @@ export default function ChessGame() {
             )}
           </div>
         </div>
+        {/* Mobile eval — hidden on md+ where EvalBar shows */}
+        <div className="md:hidden flex justify-center mt-2">
+          <span className="font-mono text-xs font-bold px-3 py-1 rounded-full bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 tabular-nums">
+            {mobileEvalLabel}
+          </span>
+        </div>
       </div>
 
       {/* ── Sidebar / controls column ── */}
@@ -666,7 +688,6 @@ export default function ChessGame() {
             <h1 className={`text-xl md:text-2xl font-black uppercase tracking-widest transition-colors duration-300 ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
               Chessoplex
             </h1>
-            <p className={`text-[10px] font-bold tracking-wider ${subTextClass}`}>PREMIUM CHESS</p>
           </div>
           <div className="flex items-center gap-2">
             {/* Settings toggle */}
@@ -877,17 +898,30 @@ export default function ChessGame() {
                       <span className={`text-sm font-bold ${textBaseClass}`}>Clear Preferences</span>
                       <span className={`text-[10px] font-medium mt-0.5 ${subTextClass}`}>Reset all saved settings and game data</span>
                     </div>
-                    <button
-                      onClick={() => {
-                        if (window.confirm("Are you sure you want to clear all preferences and game data?")) {
-                          localStorage.clear();
-                          window.location.reload();
-                        }
-                      }}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg shadow-sm transition-colors"
-                    >
-                      CLEAR
-                    </button>
+                    {confirmClear ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold ${subTextClass}`}>Sure?</span>
+                        <button
+                          onClick={() => { localStorage.clear(); window.location.reload(); }}
+                          className="px-3 py-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg shadow-sm transition-colors"
+                        >
+                          YES
+                        </button>
+                        <button
+                          onClick={() => setConfirmClear(false)}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg shadow-sm transition-colors ${isLightUi ? "bg-zinc-200 text-zinc-700 hover:bg-zinc-300" : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"}`}
+                        >
+                          NO
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmClear(true)}
+                        className="px-3 py-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg shadow-sm transition-colors"
+                      >
+                        CLEAR
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

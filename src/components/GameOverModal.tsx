@@ -6,6 +6,8 @@ type GameOverModalProps = {
   isOpen: boolean;
   gameStatus: string | null; // e.g., "Checkmate", "Draw", "Stalemate"
   winner: "w" | "b" | "draw" | null;
+  playerColor?: "w" | "b";
+  opponentName?: string;
   onRestart: () => void;
   isLightUi?: boolean;
 };
@@ -14,6 +16,8 @@ export default function GameOverModal({
   isOpen,
   gameStatus,
   winner,
+  playerColor = "w",
+  opponentName,
   onRestart,
   isLightUi = false,
 }: GameOverModalProps) {
@@ -29,8 +33,8 @@ export default function GameOverModal({
 
   if (!isVisible && !isOpen) return null;
 
-  const isWin = winner === "w";
-  const isLoss = winner === "b";
+  const isWin = winner !== "draw" && winner === playerColor;
+  const isLoss = winner !== "draw" && winner !== null && winner !== playerColor;
   const isDraw = winner === "draw";
 
   // Dynamic Styles
@@ -67,10 +71,16 @@ export default function GameOverModal({
         </h2>
 
         <p
-          className={`font-medium mb-8 uppercase tracking-widest text-sm ${subTextColor}`}
+          className={`font-medium uppercase tracking-widest text-sm ${subTextColor}`}
         >
           {gameStatus || "Match Ended"}
         </p>
+        {opponentName && (
+          <p className={`text-xs mt-1 mb-8 ${subTextColor} opacity-70`}>
+            vs. {opponentName}
+          </p>
+        )}
+        {!opponentName && <div className="mb-8" />}
 
         <button
           onClick={onRestart}
