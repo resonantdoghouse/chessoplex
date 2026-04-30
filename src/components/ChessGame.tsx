@@ -17,7 +17,7 @@ import { useAudio } from "../hooks/useAudio";
 import { useVoice, sanToSpeech } from "../hooks/useVoice";
 import { getOpeningName } from "@/lib/openings";
 
-export default function ChessGame() {
+export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } = {}) {
   const [game, setGame] = useState(new Chess());
   const [mounted, setMounted] = useState(false);
   const [moveFrom, setMoveFrom] = useState<string | null>(null);
@@ -690,6 +690,19 @@ export default function ChessGame() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            {/* Study mode button */}
+            {onStudyMode && (
+              <button
+                onClick={onStudyMode}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                  theme === "dark"
+                    ? "bg-indigo-600 hover:bg-indigo-500 text-white"
+                    : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                }`}
+              >
+                📖 Study
+              </button>
+            )}
             {/* Settings toggle */}
             <button
               onClick={() => setShowSettings(s => !s)}
