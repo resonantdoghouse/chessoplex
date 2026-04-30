@@ -41,6 +41,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
   const lastSpokenAnnotationCountRef = useRef(0);
   const lastSpokenOpeningRef = useRef<string | null>(null);
   const lastEvalRef = useRef<number>(0);
+  const tourStartRef = useRef<number>(0);
   const [currentEval, setCurrentEval] = useState<{ evaluation?: number; mate?: number }>({});
 
   // Game stats state
@@ -178,7 +179,9 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
     }
 
     setMounted(true);
-    setShowTour(shouldShowTour());
+    const tourNeeded = shouldShowTour();
+    if (tourNeeded) tourStartRef.current = Date.now();
+    setShowTour(tourNeeded);
   }, []);
 
   // Voice announcement — fires when a new annotation is settled
@@ -972,7 +975,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
           playerColor={currentPlayerColor}
           startTime={startTime}
           gameStatus={gameResult ? gameResult.reason : null}
-          isPaused={isPaused}
+          isPaused={isPaused || showTour}
           totalPausedTime={totalPausedTime}
           opponentName={opponentName}
           isLightUi={isLightUi}
@@ -990,7 +993,10 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
       </div>
     </div>
 
-    {showTour && <IntroTour theme={theme} onDismiss={() => setShowTour(false)} />}
+    {showTour && <IntroTour theme={theme} onDismiss={() => {
+      setStartTime(prev => prev + (Date.now() - tourStartRef.current));
+      setShowTour(false);
+    }} />}
     </>
   );
 }
