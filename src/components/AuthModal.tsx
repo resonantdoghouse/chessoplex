@@ -3,25 +3,15 @@ import { useState } from "react";
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  isLightUi?: boolean;
 };
 
-export default function AuthModal({ isOpen, onClose, isLightUi = false }: Props) {
+export default function AuthModal({ isOpen, onClose }: Props) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
-
-  const modalBg = isLightUi
-    ? "bg-white/95 border-black/10"
-    : "bg-zinc-900/95 border-white/10";
-  const textClass = isLightUi ? "text-zinc-900" : "text-white";
-  const subTextClass = isLightUi ? "text-zinc-500" : "text-zinc-400";
-  const inputClass = isLightUi
-    ? "bg-black/5 border-black/10 text-zinc-900 placeholder-zinc-400"
-    : "bg-white/5 border-white/10 text-white placeholder-zinc-500";
 
   const getSupabase = async () => {
     const { createClient } = await import("@/lib/supabase/client");
@@ -53,10 +43,10 @@ export default function AuthModal({ isOpen, onClose, isLightUi = false }: Props)
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className={`relative w-full max-w-sm rounded-2xl border shadow-2xl p-6 ${modalBg}`}>
+      <div className="relative w-full max-w-sm rounded-2xl border shadow-2xl p-6 bg-white/95 border-black/10 dark:bg-zinc-900/95 dark:border-white/10">
         <button
           onClick={onClose}
-          className={`absolute top-4 right-4 text-lg leading-none ${subTextClass} hover:opacity-70`}
+          className="absolute top-4 right-4 text-lg leading-none text-zinc-500 dark:text-zinc-400 hover:opacity-70"
         >
           ✕
         </button>
@@ -64,16 +54,16 @@ export default function AuthModal({ isOpen, onClose, isLightUi = false }: Props)
         {sent ? (
           <div className="text-center py-4">
             <div className="text-4xl mb-3">📬</div>
-            <p className={`font-bold text-lg ${textClass}`}>Check your email</p>
-            <p className={`text-sm mt-1 ${subTextClass}`}>
+            <p className="font-bold text-lg text-zinc-900 dark:text-white">Check your email</p>
+            <p className="text-sm mt-1 text-zinc-500 dark:text-zinc-400">
               We sent a magic link to <strong>{email}</strong>
             </p>
           </div>
         ) : (
           <>
             <div className="text-center mb-6">
-              <p className={`font-bold text-xl ${textClass}`}>Save your progress</p>
-              <p className={`text-sm mt-1 ${subTextClass}`}>
+              <p className="font-bold text-xl text-zinc-900 dark:text-white">Save your progress</p>
+              <p className="text-sm mt-1 text-zinc-500 dark:text-zinc-400">
                 Sign in to sync games, study history, and stats across devices.
               </p>
             </div>
@@ -81,11 +71,7 @@ export default function AuthModal({ isOpen, onClose, isLightUi = false }: Props)
             <button
               onClick={signInWithGoogle}
               disabled={loading}
-              className={`w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 font-semibold text-sm border transition-opacity ${
-                isLightUi
-                  ? "bg-white border-black/10 text-zinc-800 hover:bg-zinc-50"
-                  : "bg-white/10 border-white/10 text-white hover:bg-white/15"
-              } disabled:opacity-50`}
+              className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 font-semibold text-sm border transition-opacity bg-white border-black/10 text-zinc-800 hover:bg-zinc-50 dark:bg-white/10 dark:border-white/10 dark:text-white dark:hover:bg-white/15 disabled:opacity-50"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -96,7 +82,7 @@ export default function AuthModal({ isOpen, onClose, isLightUi = false }: Props)
               Continue with Google
             </button>
 
-            <div className={`flex items-center gap-3 my-4 ${subTextClass}`}>
+            <div className="flex items-center gap-3 my-4 text-zinc-500 dark:text-zinc-400">
               <div className="flex-1 h-px bg-current opacity-20" />
               <span className="text-xs">or</span>
               <div className="flex-1 h-px bg-current opacity-20" />
@@ -109,7 +95,7 @@ export default function AuthModal({ isOpen, onClose, isLightUi = false }: Props)
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && signInWithEmail()}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-sm outline-none ${inputClass}`}
+                className="flex-1 rounded-xl border px-3 py-2.5 text-sm outline-none bg-black/5 border-black/10 text-zinc-900 placeholder-zinc-400 dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder-zinc-500"
               />
               <button
                 onClick={signInWithEmail}
@@ -124,7 +110,7 @@ export default function AuthModal({ isOpen, onClose, isLightUi = false }: Props)
 
             <button
               onClick={onClose}
-              className={`w-full mt-4 text-center text-xs ${subTextClass} hover:opacity-70`}
+              className="w-full mt-4 text-center text-xs text-zinc-500 dark:text-zinc-400 hover:opacity-70"
             >
               Continue as guest
             </button>

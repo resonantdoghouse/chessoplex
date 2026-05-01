@@ -18,6 +18,7 @@ import { useVoice, sanToSpeech } from "../hooks/useVoice";
 import { getOpeningName } from "@/lib/openings";
 import IntroTour, { shouldShowTour } from "./IntroTour";
 import { useAuth } from "@/context/AuthContext";
+import UserMenu from "./UserMenu";
 
 export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } = {}) {
   const [game, setGame] = useState(new Chess());
@@ -749,6 +750,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <UserMenu />
             <button
               onClick={() => setShowSettings(s => !s)}
               aria-label={showSettings ? "Close settings" : "Open settings"}
