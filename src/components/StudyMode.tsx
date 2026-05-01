@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Chess, Square } from "chess.js";
 import { Chessboard as ChessboardBase } from "react-chessboard";
 const Chessboard = ChessboardBase as any;
@@ -12,6 +12,7 @@ import {
 } from "@/lib/studyOpenings";
 import { useTheme } from "../hooks/useTheme";
 import { BOARD_THEMES, BoardTheme } from "@/lib/constants";
+import { useAuth } from "@/context/AuthContext";
 
 type MobileView = "list" | "detail" | "practice";
 type FilterColor = "all" | "white" | "black";
@@ -215,6 +216,7 @@ function TipBox({
 
 export default function StudyMode({ onBack }: { onBack: () => void }) {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [boardThemeKey, setBoardThemeKey] = useState<BoardTheme>("default");
 
   // Read the board theme the user has selected in the game
@@ -237,6 +239,26 @@ export default function StudyMode({ onBack }: { onBack: () => void }) {
   const [lastMove, setLastMove] = useState<string>("");
   const [clickFrom, setClickFrom] = useState<string | null>(null);
   const [legalSquares, setLegalSquares] = useState<Record<string, React.CSSProperties>>({});
+  const practiceStartRef = useRef<number>(0);
+  const hintsUsedRef = useRef<number>(0);
+
+  // Save study session to Supabase when a practice run completes
+  useEffect(() => {
+    if (session?.status !== "complete" || !user || !selectedOpening) return;
+    fetch("/api/study", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        openingId: selectedOpening.id,
+        openingName: selectedOpening.name,
+        completed: true,
+        hintsUsed: hintsUsedRef.current,
+        movesCorrect: session.moveIndex,
+        totalMoves: selectedOpening.moves.length,
+        durationMs: Date.now() - practiceStartRef.current,
+      }),
+    }).catch(() => {});
+  }, [session?.status]);
 
   // Merge hint squares + legal move squares for the board
   const customSquareStyles = useMemo(() => {
@@ -321,6 +343,8 @@ export default function StudyMode({ onBack }: { onBack: () => void }) {
       const s = initSession(opening);
       setSession(s);
       setLastMove("");
+      practiceStartRef.current = Date.now();
+      hintsUsedRef.current = 0;
       setMobileView("practice");
 
       // If the first move is the tutor's (e.g. studying Black openings), auto-play it
@@ -590,7 +614,7 @@ export default function StudyMode({ onBack }: { onBack: () => void }) {
       {/* Controls */}
       <div className="flex gap-2 shrink-0">
         <button
-          onClick={() => setSession((prev) => prev ? { ...prev, showHint: !prev.showHint } : prev)}
+          onClick={() => setSession((prev) => { if (!prev) return prev; if (!prev.showHint) hintsUsedRef.current++; return { ...prev, showHint: !prev.showHint }; })}
           disabled={session.status !== "waiting" || !isUserTurn(selectedOpening, session.moveIndex)}
           className="flex-1 py-2 rounded-lg text-sm font-medium border border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
@@ -760,7 +784,7 @@ export default function StudyMode({ onBack }: { onBack: () => void }) {
                 {/* Controls */}
                 <div className="flex flex-col gap-2 shrink-0 mt-auto">
                   <button
-                    onClick={() => setSession((prev) => prev ? { ...prev, showHint: !prev.showHint } : prev)}
+                    onClick={() => setSession((prev) => { if (!prev) return prev; if (!prev.showHint) hintsUsedRef.current++; return { ...prev, showHint: !prev.showHint }; })}
                     disabled={session.status !== "waiting" || !isUserTurn(selectedOpening, session.moveIndex)}
                     className="py-2 rounded-lg text-sm font-medium border border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >

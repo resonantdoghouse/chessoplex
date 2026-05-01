@@ -17,6 +17,7 @@ import { useAudio } from "../hooks/useAudio";
 import { useVoice, sanToSpeech } from "../hooks/useVoice";
 import { getOpeningName } from "@/lib/openings";
 import IntroTour, { shouldShowTour } from "./IntroTour";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } = {}) {
   const [game, setGame] = useState(new Chess());
@@ -38,6 +39,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
   } = useAudio();
   const { speak, voiceEnabled, setVoiceEnabled, voiceVolume, setVoiceVolume, verbosity, setVerbosity, voices, selectedVoiceURI, setSelectedVoiceURI, selectedLang, setSelectedLang } = useVoice();
   const [moveAnnotations, setMoveAnnotations] = useState<string[]>([]);
+  const { user } = useAuth();
   const lastSpokenAnnotationCountRef = useRef(0);
   const lastSpokenOpeningRef = useRef<string | null>(null);
   const lastEvalRef = useRef<number>(0);
@@ -182,6 +184,38 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
     const tourNeeded = shouldShowTour();
     if (tourNeeded) tourStartRef.current = Date.now();
     setShowTour(tourNeeded);
+  }, []);
+
+  // Play session analytics tracking
+  useEffect(() => {
+    let anonId = localStorage.getItem("chess_anon_id");
+    if (!anonId) {
+      anonId = crypto.randomUUID();
+      localStorage.setItem("chess_anon_id", anonId);
+    }
+    const deviceType = window.innerWidth < 768 ? "mobile" : window.innerWidth < 1024 ? "tablet" : "desktop";
+    const platform = /android/i.test(navigator.userAgent) ? "android" : /iphone|ipad/i.test(navigator.userAgent) ? "ios" : "web";
+    let sessionId: string | null = null;
+    const sessionStart = Date.now();
+
+    fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "start", anonymousId: anonId, deviceType, platform }),
+    })
+      .then((r) => r.json())
+      .then((d) => { sessionId = d.sessionId; })
+      .catch(() => {});
+
+    return () => {
+      if (sessionId) {
+        navigator.sendBeacon("/api/sessions", JSON.stringify({
+          action: "end",
+          sessionId,
+          durationMs: Date.now() - sessionStart,
+        }));
+      }
+    };
   }, []);
 
   // Voice announcement — fires when a new annotation is settled
@@ -353,6 +387,25 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
       setGameResult({ winner, reason });
       setGameStats({ moves, duration });
       setIsModalOpen(true);
+
+      if (user) {
+        fetch("/api/games", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pgn: currentGame.pgn(),
+            result: winner,
+            resultReason: reason,
+            difficulty,
+            playerColor: currentPlayerColor,
+            durationMs: endTime - startTime - totalPausedTime,
+            moveCount: moves,
+            openingName: lastSpokenOpeningRef.current,
+            annotations: moveAnnotations,
+          }),
+        }).catch(() => {});
+      }
+
       return true;
     }
     return false;
