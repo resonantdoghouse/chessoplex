@@ -5,7 +5,13 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const body = await req.json();
+  const text = await req.text();
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
   const { action, sessionId, anonymousId, durationMs, deviceType, platform } = body;
 
   if (action === "start") {

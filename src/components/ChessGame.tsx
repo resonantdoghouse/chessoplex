@@ -209,11 +209,10 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
 
     return () => {
       if (sessionId) {
-        navigator.sendBeacon("/api/sessions", JSON.stringify({
-          action: "end",
-          sessionId,
-          durationMs: Date.now() - sessionStart,
-        }));
+        navigator.sendBeacon(
+          "/api/sessions",
+          new Blob([JSON.stringify({ action: "end", sessionId, durationMs: Date.now() - sessionStart })], { type: "application/json" }),
+        );
       }
     };
   }, []);
