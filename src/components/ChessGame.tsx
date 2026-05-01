@@ -36,7 +36,7 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
     currentSong, setSong,
     currentInstrument, setInstrument,
   } = useAudio();
-  const { speak, voiceEnabled, setVoiceEnabled, voiceVolume, setVoiceVolume, verbosity, setVerbosity } = useVoice();
+  const { speak, voiceEnabled, setVoiceEnabled, voiceVolume, setVoiceVolume, verbosity, setVerbosity, voices, selectedVoiceURI, setSelectedVoiceURI, selectedLang, setSelectedLang } = useVoice();
   const [moveAnnotations, setMoveAnnotations] = useState<string[]>([]);
   const lastSpokenAnnotationCountRef = useRef(0);
   const lastSpokenOpeningRef = useRef<string | null>(null);
@@ -885,6 +885,43 @@ export default function ChessGame({ onStudyMode }: { onStudyMode?: () => void } 
                             </button>
                           ))}
                         </div>
+                        {voices.length > 0 && (() => {
+                          const langCodes = Array.from(new Set(voices.map((v) => v.lang.split("-")[0]))).sort();
+                          const filteredVoices = voices.filter((v) => v.lang.startsWith(selectedLang));
+                          return (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2 px-1">
+                                <span className={`text-[10px] font-bold ${subTextClass} w-6 shrink-0`}>LANG</span>
+                                <select
+                                  value={selectedLang}
+                                  onChange={(e) => {
+                                    const lang = e.target.value;
+                                    setSelectedLang(lang);
+                                    const first = voices.find((v) => v.lang.startsWith(lang));
+                                    if (first) setSelectedVoiceURI(first.voiceURI);
+                                  }}
+                                  className={`flex-1 text-[10px] font-bold rounded-lg px-2 py-1.5 border-0 outline-none cursor-pointer bg-black/5 dark:bg-white/10 ${subTextClass}`}
+                                >
+                                  {langCodes.map((code) => (
+                                    <option key={code} value={code}>{code.toUpperCase()}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex items-center gap-2 px-1">
+                                <span className={`text-[10px] font-bold ${subTextClass} w-6 shrink-0`}>VOICE</span>
+                                <select
+                                  value={selectedVoiceURI}
+                                  onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                                  className={`flex-1 text-[10px] font-bold rounded-lg px-2 py-1.5 border-0 outline-none cursor-pointer bg-black/5 dark:bg-white/10 ${subTextClass}`}
+                                >
+                                  {filteredVoices.map((v) => (
+                                    <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
