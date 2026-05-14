@@ -20,7 +20,7 @@ const smtpConfig = {
   smtp_admin_email: "onboarding@resend.dev",
   smtp_host: "smtp.resend.com",
   smtp_port: "465",
-  smtp_user: "resend",
+  smtp_user: "advancebass",
   smtp_pass: resendKey,
   smtp_sender_name: "Chessoplex",
 };
